@@ -11,17 +11,18 @@ Users create an account, sign in, and chat live in one of three rooms.
 | Frontend | React + Vite |
 | Backend | Express |
 | Real-time | Socket.io |
-| Database | MongoDB |
-| Auth | Supabase, bcrypt |
+| Users and rooms | Supabase (Postgres) |
+| Chat history | MongoDB |
+| Auth | Custom, with bcrypt |
 
-How MongoDB and Supabase divide responsibilities is still an open question. See `DECISIONS.md`.
+See `DECISIONS.md` for why.
 
 ## Team
 
 | Name | Owns |
 |---|---|
-| Eddie | Supabase and authentication |
-| Kanami | MongoDB |
+| Eddie | Supabase (users, rooms) and authentication |
+| Kanami | MongoDB (chat history) |
 | Tanisha | Express and Socket.io |
 | Everyone | Frontend components (first come, first served) |
 

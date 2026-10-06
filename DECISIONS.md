@@ -26,15 +26,27 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 **Consequence:** Never commit secrets. See `CONTRIBUTING.md`.
 
+### Authentication Built from Scratch
+
+**Decision:** The team builds its own sign-up and login with bcrypt for password hashing, instead of using Supabase Auth. *To be confirmed by Eddie.*
+
+**Reason:** Building auth by hand is part of the practice.
+
+**Consequence:** The team is responsible for hashing, verifying passwords, and keeping users logged in. How sessions or tokens work is still open.
+
+### Data Split Between Supabase and MongoDB
+
+**Decision:** Supabase (Postgres) stores users and rooms. MongoDB stores chat history.
+
+**Reason:** Each owner gets a distinct data area to work in.
+
+**Consequence:** Messages in MongoDB refer to users and rooms that live in Supabase, so both sides must agree on the IDs used to link them.
+
 ## Open Questions
 
-### Supabase vs. bcrypt for Passwords
+### Session Handling
 
-Supabase Auth hashes and stores passwords itself, so bcrypt is only needed if the team writes its own login logic. Which approach is the team using? *Owner: Eddie*
-
-### What Lives in MongoDB vs. Supabase
-
-Supabase runs on Postgres, so the project has two databases. Which data goes where (users, rooms, messages)? *Owners: Eddie and Kanami*
+After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? *Owners: Eddie and Tanisha*
 
 ### JavaScript or TypeScript
 
