@@ -28,12 +28,12 @@ The project is a 10-day team exercise. The main goal is hands-on practice with:
 
 ## Ownership
 
-| Area | Owner |
-|---|---|
-| Supabase (users, rooms) and authentication | Eddie |
-| MongoDB (chat history) | Kanami |
-| Express and Socket.io | Tanisha |
-| Frontend components | Whoever finishes their area first |
+| Area                                       | Owner                             |
+| ------------------------------------------ | --------------------------------- |
+| Supabase (users, rooms) and authentication | Eddie                             |
+| MongoDB (chat history)                     | Kanami                            |
+| Express and Socket.io                      | Tanisha                           |
+| Frontend components                        | Whoever finishes their area first |
 
 ## Timeline
 

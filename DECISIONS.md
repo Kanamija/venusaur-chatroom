@@ -34,7 +34,7 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Authentication Built from Scratch
 
-**Decision:** The team builds its own sign-up and login with bcrypt for password hashing, instead of using Supabase Auth. *To be confirmed by Eddie.*
+**Decision:** The team builds its own sign-up and login with bcrypt for password hashing, instead of using Supabase Auth. _To be confirmed by Eddie._
 
 **Reason:** Building auth by hand is part of the practice.
 
@@ -72,7 +72,7 @@ Nothing reads a `.env` file yet. Where should `.env` live (the repository root o
 
 ### Session Handling
 
-After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? *Owners: Eddie and Tanisha*
+After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? _Owners: Eddie and Tanisha_
 
 ### Hosting
 

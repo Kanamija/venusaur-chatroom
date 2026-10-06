@@ -6,25 +6,25 @@ Users create an account, sign in, and chat live in one of three rooms.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | TypeScript |
-| Frontend | React + Vite |
-| Backend | Express |
-| Real-time | Socket.io |
+| Layer           | Technology          |
+| --------------- | ------------------- |
+| Language        | TypeScript          |
+| Frontend        | React + Vite        |
+| Backend         | Express             |
+| Real-time       | Socket.io           |
 | Users and rooms | Supabase (Postgres) |
-| Chat history | MongoDB |
-| Auth | Custom, with bcrypt |
+| Chat history    | MongoDB             |
+| Auth            | Custom, with bcrypt |
 
 See `DECISIONS.md` for why.
 
 ## Team
 
-| Name | Owns |
-|---|---|
-| Eddie | Supabase (users, rooms) and authentication |
-| Kanami | MongoDB (chat history) |
-| Tanisha | Express and Socket.io |
+| Name     | Owns                                           |
+| -------- | ---------------------------------------------- |
+| Eddie    | Supabase (users, rooms) and authentication     |
+| Kanami   | MongoDB (chat history)                         |
+| Tanisha  | Express and Socket.io                          |
 | Everyone | Frontend components (first come, first served) |
 
 ## Project Structure
@@ -73,9 +73,9 @@ npm run dev
 
 This starts both apps in one terminal:
 
-| App | URL |
-|---|---|
-| Client | http://localhost:5173 |
+| App    | URL                                                |
+| ------ | -------------------------------------------------- |
+| Client | http://localhost:5173                              |
 | Server | http://localhost:3000/health returns `{"ok":true}` |
 
 To run one app on its own, use `npm run dev` inside `client/` or `server/`.
@@ -84,17 +84,17 @@ To run one app on its own, use `npm run dev` inside `client/` or `server/`.
 
 `npm run dev` does not type-check your code. Run these in each folder you changed:
 
-| Folder | Commands |
-|---|---|
+| Folder    | Commands                           |
+| --------- | ---------------------------------- |
 | `client/` | `npm run build` and `npm run lint` |
-| `server/` | `npm run build` |
+| `server/` | `npm run build`                    |
 
 ## Documentation
 
-| Document | Owns |
-|---|---|
-| `README.md` | Project introduction, setup, and running the app |
-| `PROJECT_BRIEF.md` | Goals, MVP scope, timeline, and stretch goals |
-| `DECISIONS.md` | Technical decisions, their reasoning, and open questions |
-| `CONTRIBUTING.md` | Git workflow, branches, commits, and pull requests |
-| `AGENTS.md` | How AI coding agents should behave in this repository |
+| Document           | Owns                                                     |
+| ------------------ | -------------------------------------------------------- |
+| `README.md`        | Project introduction, setup, and running the app         |
+| `PROJECT_BRIEF.md` | Goals, MVP scope, timeline, and stretch goals            |
+| `DECISIONS.md`     | Technical decisions, their reasoning, and open questions |
+| `CONTRIBUTING.md`  | Git workflow, branches, commits, and pull requests       |
+| `AGENTS.md`        | How AI coding agents should behave in this repository    |
