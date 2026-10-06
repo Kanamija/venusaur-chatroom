@@ -27,13 +27,67 @@ See `DECISIONS.md` for why.
 | Tanisha | Express and Socket.io |
 | Everyone | Frontend components (first come, first served) |
 
+## Project Structure
+
+```text
+venusaur-chatroom/
+├── client/         React + Vite frontend
+├── server/         Express backend
+└── package.json    Root scripts for running both apps together
+```
+
+`client/` and `server/` are separate apps, each with its own `package.json` and dependencies.
+
 ## Getting Started
 
-> Setup instructions will be added once the project is scaffolded.
+### Prerequisites
 
-1. Clone the repository.
-2. Copy `.env.example` to `.env` and fill in the values. Never commit `.env`.
-3. Install dependencies and start the app (commands TBD).
+- Node.js 22 or newer
+- npm
+
+### Install
+
+Dependencies are installed separately in the root, `client/`, and `server/`:
+
+```bash
+git clone https://github.com/Kanamija/venusaur-chatroom.git
+cd venusaur-chatroom
+npm install
+npm install --prefix client
+npm install --prefix server
+```
+
+On npm 12 or newer, you may see `install-scripts` warnings about `esbuild` and `fsevents` being blocked. They are harmless, and the app still runs.
+
+### Environment Variables
+
+`.env.example` lists the variables the project will use. The app doesn't read a `.env` file yet, so you can skip this step for now. See `DECISIONS.md`.
+
+### Run
+
+From the repository root:
+
+```bash
+npm run dev
+```
+
+This starts both apps in one terminal:
+
+| App | URL |
+|---|---|
+| Client | http://localhost:5173 |
+| Server | http://localhost:3000/health returns `{"ok":true}` |
+
+To run one app on its own, use `npm run dev` inside `client/` or `server/`.
+
+### Before Opening a Pull Request
+
+`npm run dev` does not type-check your code. Run these in each folder you changed:
+
+| Folder | Commands |
+|---|---|
+| `client/` | `npm run build` and `npm run lint` |
+| `server/` | `npm run build` |
 
 ## Documentation
 

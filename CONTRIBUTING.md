@@ -85,9 +85,11 @@ git switch <your-branch>
 git merge main
 ```
 
-Then check:
+Then check the following. `npm run dev` does not type-check, so the build step is what catches TypeScript errors. See `README.md` for how to run the app.
 
 - The app starts locally.
+- If you changed `client/`: `npm run build` and `npm run lint` pass in `client/`.
+- If you changed `server/`: `npm run build` passes in `server/`.
 - You tested the change by hand.
 - Debugging code and stray `console.log`s are removed.
 - No secrets or `.env` files are included.

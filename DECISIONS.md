@@ -48,15 +48,31 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 **Consequence:** Messages in MongoDB refer to users and rooms that live in Supabase, so both sides must agree on the IDs used to link them.
 
+### Repository Layout
+
+**Decision:** One repository with two separate apps: `client/` (React + Vite) and `server/` (Express). Each has its own `package.json`. A root `package.json` uses `concurrently` so `npm run dev` starts both.
+
+**Reason:** The browser and Node need different dependencies and TypeScript settings, so keeping them separate keeps each side's setup clear. One start command makes local development easier for the whole team.
+
+**Consequence:** Dependencies are installed in three places: the root, `client/`, and `server/`. npm workspaces could reduce this to one install later if the team wants.
+
+### ES Modules on the Server
+
+**Decision:** The server uses ES Modules (`import`/`export`), with `"type": "module"` in `server/package.json` and `"module": "nodenext"` in `server/tsconfig.json`.
+
+**Reason:** The client already uses ES Modules, so both sides of the codebase use the same syntax, and ESM is the modern standard for Node.
+
+**Consequence:** Server code uses `import`, not `require`.
+
 ## Open Questions
+
+### Loading Environment Variables
+
+Nothing reads a `.env` file yet. Where should `.env` live (the repository root or `server/`), and how should the server load it (for example Node's built-in `--env-file` flag)? This needs answering before the first real secret, such as `MONGODB_URI`, is used.
 
 ### Session Handling
 
 After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? *Owners: Eddie and Tanisha*
-
-### Repository Layout
-
-Should the frontend and backend share one repository with separate folders (for example `client/` and `server/`), and how is the app started locally?
 
 ### Hosting
 
