@@ -90,6 +90,7 @@ Then check the following. `npm run dev` does not type-check, so the build step i
 - The app starts locally.
 - If you changed `client/`: `npm run build` and `npm run lint` pass in `client/`.
 - If you changed `server/`: `npm run build` passes in `server/`.
+- `npm run format:check` passes in the repository root. If not, run `npm run format`.
 - You tested the change by hand.
 - Debugging code and stray `console.log`s are removed.
 - No secrets or `.env` files are included.

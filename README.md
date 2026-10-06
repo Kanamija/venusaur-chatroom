@@ -89,6 +89,14 @@ To run one app on its own, use `npm run dev` inside `client/` or `server/`.
 | `client/` | `npm run build` and `npm run lint` |
 | `server/` | `npm run build`                    |
 
+Then, from the repository root, check formatting:
+
+```bash
+npm run format:check
+```
+
+If it reports files, run `npm run format` to fix them and commit the result.
+
 ## Documentation
 
 | Document           | Owns                                                     |
