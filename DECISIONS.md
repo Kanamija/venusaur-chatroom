@@ -12,6 +12,12 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 **Reason:** The team chose these technologies to practice them during the project.
 
+### TypeScript
+
+**Decision:** The project is written in TypeScript, on both the frontend and the backend.
+
+**Reason:** The team wants type checking and practice with TypeScript.
+
 ### Area Ownership
 
 **Decision:** Eddie owns Supabase and authentication, Kanami owns MongoDB, and Tanisha owns Express and Socket.io. Frontend components go to whoever finishes first.
@@ -47,10 +53,6 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 ### Session Handling
 
 After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? *Owners: Eddie and Tanisha*
-
-### JavaScript or TypeScript
-
-Not decided.
 
 ### Repository Layout
 

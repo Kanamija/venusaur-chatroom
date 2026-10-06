@@ -8,6 +8,7 @@ Users create an account, sign in, and chat live in one of three rooms.
 
 | Layer | Technology |
 |---|---|
+| Language | TypeScript |
 | Frontend | React + Vite |
 | Backend | Express |
 | Real-time | Socket.io |

@@ -10,6 +10,7 @@ Venusaur Chatroom is a real-time chat application where users sign up, log in, a
 
 The project is a 10-day team exercise. The main goal is hands-on practice with:
 
+- TypeScript
 - React and Vite
 - Express
 - Socket.io

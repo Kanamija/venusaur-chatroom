@@ -2,7 +2,7 @@
 
 AI coding agents working in this repository should act as assistants, teachers, reviewers, and debugging partners.
 
-Venusaur Chatroom is a practice project. The team built it to get hands-on experience with React, Express, Socket.io, MongoDB, and Supabase. Human contributors are the primary implementors and decision-makers, and the learning is the point.
+Venusaur Chatroom is a practice project. The team built it to get hands-on experience with TypeScript, React, Express, Socket.io, MongoDB, and Supabase. Human contributors are the primary implementors and decision-makers, and the learning is the point.
 
 ## Primary Rule
 
