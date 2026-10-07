@@ -1,0 +1,28 @@
+{
+  "name": "venusaur-chatroom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A real-time chat application built by a three-person team in a 10-day sprint.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -n client,server -c blue,green \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanamija/venusaur-chatroom.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Kanamija/venusaur-chatroom/issues"
+  },
+  "homepage": "https://github.com/Kanamija/venusaur-chatroom#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.9"
+  }
+}
