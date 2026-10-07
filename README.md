@@ -42,7 +42,7 @@ venusaur-chatroom/
 
 ### Prerequisites
 
-- Node.js 22 or newer
+- Node.js 22.13+ or 24+
 - npm
 
 ### Install
