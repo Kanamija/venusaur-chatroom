@@ -11,6 +11,7 @@
   "keywords": [],
   "type": "module",
   "dependencies": {
+    "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "socket.io": "^4.8.4"
   },

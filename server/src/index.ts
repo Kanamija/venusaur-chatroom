@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -26,6 +29,33 @@ app.get('/health', (_req, res) => {
 // Socket.io connection handling (note: 'connect', 'not connect')
 io.on('connect', (socket) => {
   console.log(`A user connected: ${socket.id}`);
+
+  // Handle joining a room
+  socket.on('join_room', (roomId: string) => {
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room: ${roomId}`);
+  });
+
+  // Handle sending a message
+  socket.on('send_message', async (data: {roomId: string; content: string}) => {
+    try {
+      //! NOTE: userId will be populated from the verified token (Eddie's auth task)
+      //! and saved to MongoDB first (Kanami's history task).
+      const messagePayload = {
+        roomId: data.roomId,
+        content: data.content,
+        timestamp: new Date(),
+      }
+
+      console.log(`Message in ${data.roomId}:`, messagePayload);
+
+      // Broadcast to everyone in the room
+      io.to(data.roomId).emit('receive_message', messagePayload)
+    } catch (error) {
+      console.error('Error handling send_message:', error);
+      socket.emit('error', {message: 'Failed to send message'});
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
