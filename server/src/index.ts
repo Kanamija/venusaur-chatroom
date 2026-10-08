@@ -1,9 +1,9 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config'; // Load environment variables before imports
 
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import './models/postgresModel.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,7 +11,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     // This matches the Vite frontend dev server
-    origin: 'http://localhost:5173', 
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
   },
 });
@@ -33,7 +33,7 @@ io.on('connect', (socket) => {
   // Handle joining a room
   socket.on('join_room', (roomId: string) => {
     if (typeof roomId !== 'string' || roomId.trim().length === 0) {
-      socket.emit('error', {message: 'A non-empty room ID is required'});
+      socket.emit('error', { message: 'A non-empty room ID is required' });
       return;
     }
     socket.join(roomId);
@@ -41,36 +41,39 @@ io.on('connect', (socket) => {
   });
 
   // Handle sending a message
-  socket.on('send_message', async (data: {roomId: string; content: string}) => {
-    try {
-      if (
-        !data ||
-        typeof data.roomId !== 'string' ||
-        data.roomId.trim().length === 0 ||
-        typeof data.content !== 'string' ||
-        data.content.trim().length === 0
-      ) {
-        socket.emit('error', {message: 'Invalid message payload'});
-        return;
+  socket.on(
+    'send_message',
+    async (data: { roomId: string; content: string }) => {
+      try {
+        if (
+          !data ||
+          typeof data.roomId !== 'string' ||
+          data.roomId.trim().length === 0 ||
+          typeof data.content !== 'string' ||
+          data.content.trim().length === 0
+        ) {
+          socket.emit('error', { message: 'Invalid message payload' });
+          return;
+        }
+
+        //! NOTE: userId will be populated from the verified token (Eddie's auth task)
+        //! and saved to MongoDB first (Kanami's history task).
+        const messagePayload = {
+          roomId: data.roomId,
+          content: data.content,
+          timestamp: new Date(),
+        };
+
+        console.log(`Message in ${data.roomId}:`, messagePayload);
+
+        // Broadcast to everyone in the room
+        io.to(data.roomId).emit('receive_message', messagePayload);
+      } catch (error) {
+        console.error('Error handling send_message:', error);
+        socket.emit('error', { message: 'Failed to send message' });
       }
-
-      //! NOTE: userId will be populated from the verified token (Eddie's auth task)
-      //! and saved to MongoDB first (Kanami's history task).
-      const messagePayload = {
-        roomId: data.roomId,
-        content: data.content,
-        timestamp: new Date(),
-      }
-
-      console.log(`Message in ${data.roomId}:`, messagePayload);
-
-      // Broadcast to everyone in the room
-      io.to(data.roomId).emit('receive_message', messagePayload)
-    } catch (error) {
-      console.error('Error handling send_message:', error);
-      socket.emit('error', {message: 'Failed to send message'});
-    }
-  });
+    },
+  );
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -81,5 +84,3 @@ io.on('connect', (socket) => {
 httpServer.listen(PORT, () => {
   console.log(`Server listening on http://localhost: ${PORT}`);
 });
-
-
