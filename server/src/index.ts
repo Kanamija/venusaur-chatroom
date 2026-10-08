@@ -32,6 +32,10 @@ io.on('connect', (socket) => {
 
   // Handle joining a room
   socket.on('join_room', (roomId: string) => {
+    if (typeof roomId !== 'string' || roomId.trim().length === 0) {
+      socket.emit('error', {message: 'A non-empty room ID is required'});
+      return;
+    }
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room: ${roomId}`);
   });
@@ -39,6 +43,17 @@ io.on('connect', (socket) => {
   // Handle sending a message
   socket.on('send_message', async (data: {roomId: string; content: string}) => {
     try {
+      if (
+        !data ||
+        typeof data.roomId !== 'string' ||
+        data.roomId.trim().length === 0 ||
+        typeof data.content !== 'string' ||
+        data.content.trim().length === 0
+      ) {
+        socket.emit('error', {message: 'Invalid message payload'});
+        return;
+      }
+
       //! NOTE: userId will be populated from the verified token (Eddie's auth task)
       //! and saved to MongoDB first (Kanami's history task).
       const messagePayload = {
@@ -67,6 +82,4 @@ httpServer.listen(PORT, () => {
   console.log(`Server listening on http://localhost: ${PORT}`);
 });
 
-// app.listen(PORT, () => {
-//   console.log(`Server listening on http://localhost:${PORT}`);
-// });
+
