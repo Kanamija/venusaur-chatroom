@@ -56,7 +56,7 @@ _Updated October 7, 2026: rooms moved from Supabase to MongoDB, agreed by Eddie 
 
 **Reason:** Fixed rooms keep the MVP small and avoid room-management features.
 
-**Consequence:** The three rooms are created once by a seed script instead of through the app. Their names are still open (see `PROJECT_BRIEF.md`).
+**Consequence:** The three rooms are created once by a seed script instead of through the app. The rooms are Venusaur, Charizard, and Pikachu.
 
 ### Repository Layout
 

@@ -22,18 +22,18 @@ The project is a 10-day team exercise. The main goal is hands-on practice with:
 ## MVP Scope
 
 - **Accounts:** users can sign up, log in, and log out with real accounts.
-- **Rooms:** three chat rooms. Users can join a room and switch between rooms.
+- **Rooms:** three fixed chat rooms: Venusaur, Charizard, and Pikachu. Users can join a room and switch between rooms.
 - **Messaging:** messages appear live for everyone in the same room.
 - **History:** messages are saved so the chat history persists.
 
 ## Ownership
 
-| Area                                       | Owner                             |
-| ------------------------------------------ | --------------------------------- |
-| Supabase (users, rooms) and authentication | Eddie                             |
-| MongoDB (chat history)                     | Kanami                            |
-| Express and Socket.io                      | Tanisha                           |
-| Frontend components                        | Whoever finishes their area first |
+| Area                                | Owner                             |
+| ----------------------------------- | --------------------------------- |
+| Supabase (users) and authentication | Eddie                             |
+| MongoDB (rooms and chat history)    | Kanami                            |
+| Express and Socket.io               | Tanisha                           |
+| Frontend components                 | Whoever finishes their area first |
 
 ## Timeline
 
@@ -45,6 +45,5 @@ None agreed yet. Add ideas here only after the team agrees, and keep them out of
 
 ## Open Questions
 
-- What are the three rooms called, and are they fixed or user-created?
 - How much history loads when a user joins a room (all of it, or the most recent messages)?
 - Where will the app be hosted for the demo?
