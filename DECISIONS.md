@@ -42,11 +42,21 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Data Split Between Supabase and MongoDB
 
-**Decision:** Supabase (Postgres) stores users and rooms. MongoDB stores chat history.
+**Decision:** Supabase (Postgres) stores users. MongoDB stores rooms and chat history.
 
-**Reason:** Each owner gets a distinct data area to work in.
+**Reason:** Each owner gets a distinct data area to work in. Every message belongs to a room, so keeping rooms next to messages keeps the MongoDB side self-contained, and it leaves Supabase focused on users and authentication.
 
-**Consequence:** Messages in MongoDB refer to users and rooms that live in Supabase, so both sides must agree on the IDs used to link them.
+**Consequence:** Messages in MongoDB refer to users that live in Supabase, so both sides must agree on the user ID format. Kanami owns the `Room` model and the script that seeds the rooms.
+
+_Updated October 7, 2026: rooms moved from Supabase to MongoDB, agreed by Eddie and Kanami._
+
+### Fixed Rooms for MVP
+
+**Decision:** The MVP has three fixed rooms. Users cannot create, rename, or delete rooms.
+
+**Reason:** Fixed rooms keep the MVP small and avoid room-management features.
+
+**Consequence:** The three rooms are created once by a seed script instead of through the app. Their names are still open (see `PROJECT_BRIEF.md`).
 
 ### Repository Layout
 
