@@ -1,5 +1,8 @@
-import query from './postgres.js';
+import { DatabaseError, type QueryResult } from 'pg';
+
+import AppError from '../errors/AppError.js';
 import type { User, UserWithHash } from '../schemas/userSchema.js';
+import query from './postgres.js';
 
 // raw PostgreSQL user row
 type UserRow = {
@@ -23,7 +26,21 @@ export async function createUser(
         VALUES($1, $2)
         RETURNING id, username, created_at
     `;
-  const result = await query<UserRow>(sqlQuery, [username, passwordHash]);
+
+  let result: QueryResult<UserRow>;
+
+  try {
+    result = await query<UserRow>(sqlQuery, [username, passwordHash]);
+  } catch (err) {
+    if (err instanceof DatabaseError && err.code === '23505') {
+      throw new AppError('Username already exists', 409, {
+        log: 'postgresUser.createUser: Duplicate username',
+        cause: err,
+      });
+    }
+    throw err;
+  }
+
   const row = result.rows[0];
 
   // Normalize PostgreSQL fields to match the shared User type used by both databases.
