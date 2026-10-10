@@ -1,7 +1,11 @@
 import type { RequestHandler } from 'express';
 import { randomBytes } from 'node:crypto';
 import type { User } from '../schemas/userSchema.js';
-import { createSession, findSession } from '../models/sessionModel.js';
+import {
+  createSession,
+  findSession,
+  deleteSession,
+} from '../models/sessionModel.js';
 import AppError from '../errors/AppError.js';
 
 // startSession() — Generate a session ID, save it to the database, and set the cookie.
@@ -46,5 +50,17 @@ export const verifySession: RequestHandler = async (req, res, next) => {
   }
 
   res.locals.userId = userId;
+  return next();
+};
+
+// endSession() — Delete the session from the database and clear the cookie.
+export const endSession: RequestHandler = async (req, res, next) => {
+  const sessionId = req.cookies?.sessionId;
+
+  if (sessionId && typeof sessionId === 'string') {
+    await deleteSession(sessionId);
+  }
+  res.clearCookie('sessionId');
+  console.log('Set-Cookie:', res.getHeader('Set-Cookie'));
   return next();
 };

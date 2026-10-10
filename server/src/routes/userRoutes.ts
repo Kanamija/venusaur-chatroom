@@ -7,6 +7,7 @@ import {
 import {
   startSession,
   verifySession,
+  endSession,
 } from '../controllers/sessionController.js';
 
 const router = Router();
@@ -29,6 +30,13 @@ router.get('/me', verifySession, getCurrentUser, (_req, res) => {
   res.status(200).json({
     success: true,
     user: res.locals.user,
+  });
+});
+
+router.post('/logout', endSession, (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully',
   });
 });
 
