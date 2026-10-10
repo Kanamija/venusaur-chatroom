@@ -121,7 +121,7 @@ interface AuthPageProps {
                 <button
                     type="submit"
                     disabled={loading || isTransitioning}
-                    className="group relative w-16 h-16 rounded-full border-2 border-white bg-black overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all focus:outline-none shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-[url('/pokemon-cursor.png'),_pointer]"
+                    className="group relative w-16 h-16 rounded-full border-2 border-white bg-black overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-[url('/pokemon-cursor.png'),_pointer]"
                     title={
                     isLogin
                         ? 'Click Pokéball to Enter'
