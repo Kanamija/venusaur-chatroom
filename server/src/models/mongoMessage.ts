@@ -30,4 +30,25 @@ messageSchema.index({ roomId: 1, createdAt: -1 });
 
 const Message = model('Message', messageSchema);
 
-export { Message };
+type NewMessage = {
+  roomId: string;
+  userId: string;
+  username: string;
+  text: string;
+};
+
+async function saveMessage(newMessage: NewMessage) {
+  const savedMessage = await Message.create(newMessage);
+  return savedMessage.toObject();
+}
+
+async function getRecentMessages(roomId: string, limit = 50) {
+  const newestFirst = await Message.find({ roomId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  return newestFirst.reverse();
+}
+
+export { Message, saveMessage, getRecentMessages };
