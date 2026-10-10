@@ -86,10 +86,11 @@ interface AuthPageProps {
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                <label className="block text-xs uppercase tracking-widest mb-1 font-mono text-gray-300">
+                <label htmlFor="username" className="block text-xs uppercase tracking-widest mb-1 font-mono text-gray-300">
                     Username
                 </label>
                 <input
+                    id="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
