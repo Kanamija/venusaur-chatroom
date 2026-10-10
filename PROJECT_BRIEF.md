@@ -24,7 +24,7 @@ The project is a 10-day team exercise. The main goal is hands-on practice with:
 - **Accounts:** users can sign up, log in, and log out with real accounts.
 - **Rooms:** three fixed chat rooms: Venusaur, Charizard, and Pikachu. Users can join a room and switch between rooms.
 - **Messaging:** messages appear live for everyone in the same room.
-- **History:** messages are saved so the chat history persists.
+- **History:** messages are saved so the chat history persists. Opening a room loads its 50 most recent messages.
 
 ## Ownership
 
@@ -45,5 +45,4 @@ None agreed yet. Add ideas here only after the team agrees, and keep them out of
 
 ## Open Questions
 
-- How much history loads when a user joins a room (all of it, or the most recent messages)?
 - Where will the app be hosted for the demo?

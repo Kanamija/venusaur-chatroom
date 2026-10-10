@@ -50,6 +50,8 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 _Updated October 7, 2026: rooms moved from Supabase to MongoDB, agreed by Eddie and Kanami._
 
+_Updated October 10, 2026: the user ID format is settled. The auth code returns the Postgres user ID as a string, and messages store it as a string in `userId`._
+
 ### Fixed Rooms for MVP
 
 **Decision:** The MVP has three fixed rooms. Users cannot create, rename, or delete rooms.
@@ -74,11 +76,47 @@ _Updated October 7, 2026: rooms moved from Supabase to MongoDB, agreed by Eddie 
 
 **Consequence:** Server code uses `import`, not `require`.
 
-## Open Questions
+### Message History over REST
+
+**Decision:** A room's recent messages are loaded with `GET /api/rooms/:id/messages`, where `:id` is the room's name (for example `Venusaur`). The response is `{ "success": true, "messages": [...] }` with the newest 50 messages, ordered oldest first. A room with no messages returns an empty `messages` list, not an error.
+
+**Reason:** History is loaded once when a room opens, which fits a normal request better than a socket event. The `/api` prefix and the `success` field follow the existing `/api/users` routes, so the frontend can handle every response the same way.
+
+**Consequence:** The chat page calls this route when a room opens, then receives new messages over Socket.io. Message fields are `roomId`, `userId`, `username`, `text`, and `createdAt`.
+
+_Added October 10, 2026 by Kanami. To be confirmed by Tanisha._
+
+### Rooms Are Identified by Name
+
+**Decision:** A message's `roomId` holds the room's name as text: `Venusaur`, `Charizard`, or `Pikachu`. It is not a database ID.
+
+**Reason:** There are only three fixed rooms, and a name is readable in the database, in URLs, and in socket events without an extra lookup.
+
+**Consequence:** Spelling and capitalization must match exactly everywhere a room is named: the frontend, the Socket.io events, and the history route. A misspelled name is treated as a different, empty room.
+
+_Added October 10, 2026 by Kanami._
 
 ### Loading Environment Variables
 
-Nothing reads a `.env` file yet. Where should `.env` live (the repository root or `server/`), and how should the server load it (for example Node's built-in `--env-file` flag)? This needs answering before the first real secret, such as `MONGODB_URI`, is used.
+**Decision:** The `.env` file lives in `server/`. The server loads it with `import 'dotenv/config'` as the first line of `server/src/index.ts`. Standalone scripts, such as the room seed script, start with the same import.
+
+**Reason:** All secrets so far (`MONGODB_URI`, `POSTGRES_URI`) are used only by the server, so the file sits next to the code that reads it.
+
+**Consequence:** Server commands must run with `server/` as the working directory, which `npm run <script> --prefix server` and the root `npm run dev` already do. The `dev` and `start` scripts in `server/package.json` also still pass Node's `--env-file-if-exists=.env` flag, which is now redundant.
+
+_Moved from Open Questions on October 10, 2026._
+
+### MongoDB Atlas Network Access
+
+**Decision:** The Atlas cluster accepts connections from any IP address (`0.0.0.0/0`). The password in `MONGODB_URI` is the only protection. _To be confirmed by Eddie and Tanisha._
+
+**Reason:** Home and mobile IP addresses change often, and each change blocked the connection until the new address was added by hand. This is a short practice project with no real user data.
+
+**Consequence:** `MONGODB_URI` must never be committed or posted publicly; share it by direct message. The rule should be removed, or the cluster paused, when the project ends.
+
+_Added October 10, 2026 by Kanami._
+
+## Open Questions
 
 ### Session Handling
 
