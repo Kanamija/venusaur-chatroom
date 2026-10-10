@@ -79,7 +79,7 @@ interface AuthPageProps {
             </div>
 
             {error && (
-                <div className="border border-white bg-white text-black p-3 text-xs font-mono uppercase tracking-wider">
+                <div role="alert" className="border border-white bg-white text-black p-3 text-xs font-mono uppercase tracking-wider">
                 Error: {error}
                 </div>
             )}
