@@ -79,17 +79,18 @@ interface AuthPageProps {
             </div>
 
             {error && (
-                <div className="border border-white bg-white text-black p-3 text-xs font-mono uppercase tracking-wider">
+                <div role="alert" className="border border-white bg-white text-black p-3 text-xs font-mono uppercase tracking-wider">
                 Error: {error}
                 </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                <label className="block text-xs uppercase tracking-widest mb-1 font-mono text-gray-300">
+                <label htmlFor="username" className="block text-xs uppercase tracking-widest mb-1 font-mono text-gray-300">
                     Username
                 </label>
                 <input
+                    id="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -120,7 +121,7 @@ interface AuthPageProps {
                 <button
                     type="submit"
                     disabled={loading || isTransitioning}
-                    className="group relative w-16 h-16 rounded-full border-2 border-white bg-black overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all focus:outline-none shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-[url('/pokemon-cursor.png'),_pointer]"
+                    className="group relative w-16 h-16 rounded-full border-2 border-white bg-black overflow-hidden flex items-center justify-center hover:scale-105 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-[url('/pokemon-cursor.png'),_pointer]"
                     title={
                     isLogin
                         ? 'Click Pokéball to Enter'
