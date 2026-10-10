@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { type User, credentialsSchema } from '../schemas/userSchema.js';
-import { createUser, findByUsername } from '../models/userModel.js';
+import { createUser, findByUsername, findById } from '../models/userModel.js';
 import AppError from '../errors/AppError.js';
 
 // registerUser() — Validate credentials and create a new user.
@@ -59,5 +59,19 @@ export const authenticateUser: RequestHandler = async (req, res, next) => {
   };
 
   res.locals.user = authenticatedUser;
+  return next();
+};
+
+// getCurrentUser() — Retrieve the authenticated user's information.
+export const getCurrentUser: RequestHandler = async (_req, res, next) => {
+  const user = await findById(res.locals.userId);
+
+  if (!user) {
+    throw new AppError('Unauthorized', 401, {
+      log: 'userController.getCurrentUser: User not found',
+    });
+  }
+
+  res.locals.user = user;
   return next();
 };

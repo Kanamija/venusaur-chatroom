@@ -70,3 +70,26 @@ export async function findByUsername(
     passwordHash: row.password_hash,
   };
 }
+
+// findById() — Retrieve a user by their ID without the password hash.
+export async function findById(id: string): Promise<User | null> {
+  const result = await query<{
+    id: number;
+    username: string;
+    created_at: Date;
+  }>(
+    `SELECT id, username, created_at
+     FROM users
+     WHERE id = $1`,
+    [id],
+  );
+
+  if (result.rows.length === 0) return null;
+  const user = result.rows[0];
+
+  return {
+    id: String(user.id),
+    username: user.username,
+    createdAt: user.created_at,
+  };
+}

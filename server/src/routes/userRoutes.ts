@@ -2,7 +2,12 @@ import { Router } from 'express';
 import {
   registerUser,
   authenticateUser,
+  getCurrentUser,
 } from '../controllers/userController.js';
+import {
+  startSession,
+  verifySession,
+} from '../controllers/sessionController.js';
 
 const router = Router();
 
@@ -13,7 +18,14 @@ router.post('/signup', registerUser, (_req, res) => {
   });
 });
 
-router.post('/login', authenticateUser, (_req, res) => {
+router.post('/login', authenticateUser, startSession, (_req, res) => {
+  res.status(200).json({
+    success: true,
+    user: res.locals.user,
+  });
+});
+
+router.get('/me', verifySession, getCurrentUser, (_req, res) => {
   res.status(200).json({
     success: true,
     user: res.locals.user,

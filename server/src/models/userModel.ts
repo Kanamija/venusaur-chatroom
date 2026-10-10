@@ -41,3 +41,19 @@ export async function findByUsername(
     log: 'userModel.findByUsername: Invalid AUTH_DB',
   });
 }
+
+// findById() — Retrieve a user by their ID.
+export async function findById(id: string): Promise<User | null> {
+  if (process.env.AUTH_DB === 'postgres') {
+    const { findById } = await import('./postgresUser.js');
+    return findById(id);
+  }
+  if (process.env.AUTH_DB === 'mongodb') {
+    throw new AppError('Internal Server Error', 500, {
+      log: 'userModel.findById: MongoDB user model not implemented yet',
+    });
+  }
+  throw new AppError('Internal Server Error', 500, {
+    log: 'userModel.findById: Unsupported AUTH_DB',
+  });
+}
