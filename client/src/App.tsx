@@ -2,7 +2,7 @@ import { useState } from 'react';
 import AuthPage from './pages/AuthPage';
 
 function App() {
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ username: string } | null>(null);
 
   return (
     <main className="min-h-screen bg-black">
@@ -17,7 +17,7 @@ function App() {
             </h1>
             <p className="text-sm bg-teal-600/60 px-4 py-2 rounded-full border border-teal-300/40">
               Authenticated as:{' '}
-              <span className="font-bold underline">{user.email}</span>
+              <span className="font-bold underline">{user.username}</span>
             </p>
           </div>
 
