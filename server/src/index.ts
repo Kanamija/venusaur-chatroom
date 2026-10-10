@@ -3,13 +3,12 @@ import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { globalErrorHandler } from './errors/globalErrorHandler.js';
 
 const authDb = process.env.AUTH_DB;
 if (!(authDb === 'postgres' || authDb === 'mongodb')) {
   throw new Error('Invalid AUTH_DB');
 }
-
-// Early Exit if the auth database fails to connect
 try {
   if (authDb === 'postgres') await import('./models/postgres.js');
 } catch (err) {
@@ -91,6 +90,9 @@ io.on('connect', (socket) => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
+
+// Global Express error handler
+app.use(globalErrorHandler);
 
 // Listen on the httpServer (which includes Express + Socket.io)
 httpServer.listen(PORT, () => {
