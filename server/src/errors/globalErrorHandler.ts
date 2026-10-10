@@ -9,22 +9,24 @@ export const globalErrorHandler: ErrorRequestHandler = (
   _next,
 ) => {
   const isAppError = err instanceof AppError;
-  const statusCode = isAppError ? err.statusCode : 500;
-  const message =
-    isAppError && statusCode < 500 ? err.message : 'Internal Server Error';
+  let statusCode = 500;
+  let message = 'Internal Server Error';
 
-  // Log error information on the server
-  console.error('Message:', err instanceof Error ? err.message : err);
-
-  if (isAppError && err.log) {
-    console.error('Log:', err.log);
+  if (isAppError) {
+    statusCode = err.statusCode;
+    if (statusCode < 500) message = err.message;
+  } else if (err?.status === 400) {
+    statusCode = 400;
+    message = 'Invalid JSON';
+  } else if (err?.status === 413) {
+    statusCode = 413;
+    message = 'Request body too large';
   }
 
-  if (isAppError && err.cause) {
-    console.error('Cause:', err.cause);
-  }
+  console.error('Message:', err.message);
+  if (isAppError && err.log) console.error('Log:', err.log);
+  if (err?.cause) console.error('Cause:', err.cause);
 
-  // Send error response to client
   res.status(statusCode).json({
     success: false,
     message,

@@ -8,9 +8,8 @@ import { globalErrorHandler } from './errors/globalErrorHandler.js';
 import userRoutes from './routes/userRoutes.js';
 
 const authDb = process.env.AUTH_DB;
-if (!(authDb === 'postgres' || authDb === 'mongodb')) {
-  throw new Error('Invalid AUTH_DB');
-}
+if (authDb !== 'postgres') throw new Error('Invalid AUTH_DB');
+
 try {
   if (authDb === 'postgres') await import('./models/postgres.js');
 } catch (err) {

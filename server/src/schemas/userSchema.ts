@@ -18,7 +18,12 @@ export type UserWithHash = User & {
 // credentialsSchema — Validate username and password.
 export const credentialsSchema = z.object({
   username: z.string().trim().min(1),
-  password: z.string().min(1),
+  password: z
+    .string()
+    .min(1)
+    .refine((password) => Buffer.byteLength(password, 'utf8') <= 72, {
+      message: 'Password must be at most 72 UTF-8 bytes',
+    }),
 });
 
 // Credentials — TypeScript type for username and password.
