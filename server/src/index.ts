@@ -1,9 +1,21 @@
-import 'dotenv/config'; // Load environment variables before imports
+import 'dotenv/config';
 
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import './models/postgresModel.js';
+
+const authDb = process.env.AUTH_DB;
+if (!(authDb === 'postgres' || authDb === 'mongodb')) {
+  throw new Error('Invalid AUTH_DB');
+}
+
+// Early Exit if the auth database fails to connect
+try {
+  if (authDb === 'postgres') await import('./models/postgres.js');
+} catch (err) {
+  console.error('Database initialization failed:', err);
+  process.exit(1);
+}
 
 const app = express();
 const httpServer = createServer(app);
