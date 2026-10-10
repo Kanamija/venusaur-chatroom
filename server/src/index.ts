@@ -3,9 +3,11 @@ import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { connectToDatabase } from './db/connect.js';
 
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
 import userRoutes from './routes/userRoutes.js';
+import { getRoomMessages } from './controllers/roomController.js';
 
 const authDb = process.env.AUTH_DB;
 if (authDb !== 'postgres') throw new Error('Invalid AUTH_DB');
@@ -95,10 +97,26 @@ io.on('connect', (socket) => {
 // User Routes
 app.use('/api/users', userRoutes);
 
+app.get('/api/rooms/:id/messages', getRoomMessages, (_req, res) => {
+  res.status(200).json({
+    success: true,
+    messages: res.locals.messages,
+  });
+});
+
 // Global Express error handler
 app.use(globalErrorHandler);
 
-// Listen on the httpServer (which includes Express + Socket.io)
-httpServer.listen(PORT, () => {
-  console.log(`Server listening on http://localhost: ${PORT}`);
+async function start() {
+  await connectToDatabase();
+
+  // Listen on the httpServer (which includes Express + Socket.io)
+  httpServer.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+}
+
+start().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
