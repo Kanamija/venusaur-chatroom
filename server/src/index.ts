@@ -3,7 +3,9 @@ import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
+import userRoutes from './routes/userRoutes.js';
 
 const authDb = process.env.AUTH_DB;
 if (!(authDb === 'postgres' || authDb === 'mongodb')) {
@@ -90,6 +92,9 @@ io.on('connect', (socket) => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
+
+// User Routes
+app.use('/api/users', userRoutes);
 
 // Global Express error handler
 app.use(globalErrorHandler);

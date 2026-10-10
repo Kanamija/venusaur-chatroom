@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { credentialsSchema } from '../schemas/userSchema.js';
 import AppError from '../errors/AppError.js';
 import bcrypt from 'bcryptjs';
-import { createUser } from '../models/postgresUser.js';
+import { createUser } from '../models/userModel.js';
 
 // signup() — Validate credentials and create a new user.
 export const signup: RequestHandler = async (req, res, next) => {
