@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "seed": "tsx src/scripts/seedRooms.ts"
   },
   "keywords": [],
   "type": "module",
@@ -14,6 +15,7 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
+    "mongoose": "^9.11.0",
     "pg": "^8.23.1",
     "socket.io": "^4.8.4",
     "zod": "^4.6.5"

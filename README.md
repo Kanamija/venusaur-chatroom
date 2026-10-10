@@ -6,15 +6,15 @@ Users create an account, sign in, and chat live in one of three rooms.
 
 ## Tech Stack
 
-| Layer           | Technology          |
-| --------------- | ------------------- |
-| Language        | TypeScript          |
-| Frontend        | React + Vite        |
-| Backend         | Express             |
-| Real-time       | Socket.io           |
-| Users and rooms | Supabase (Postgres) |
-| Chat history    | MongoDB             |
-| Auth            | Custom, with bcrypt |
+| Layer                  | Technology          |
+| ---------------------- | ------------------- |
+| Language               | TypeScript          |
+| Frontend               | React + Vite        |
+| Backend                | Express             |
+| Real-time              | Socket.io           |
+| Users                  | Supabase (Postgres) |
+| Rooms and chat history | MongoDB             |
+| Auth                   | Custom, with bcrypt |
 
 See `DECISIONS.md` for why.
 
@@ -22,8 +22,8 @@ See `DECISIONS.md` for why.
 
 | Name     | Owns                                           |
 | -------- | ---------------------------------------------- |
-| Eddie    | Supabase (users, rooms) and authentication     |
-| Kanami   | MongoDB (chat history)                         |
+| Eddie    | Supabase (users) and authentication            |
+| Kanami   | MongoDB (rooms and chat history)               |
 | Tanisha  | Express and Socket.io                          |
 | Everyone | Frontend components (first come, first served) |
 
@@ -72,7 +72,7 @@ Configure the following variables:
 
 - `AUTH_DB=postgres` — Selects PostgreSQL for authentication.
 - `POSTGRES_URI` — PostgreSQL connection string from Supabase.
-- `MONGODB_URI` — MongoDB connection string for chat history.
+- `MONGODB_URI` — MongoDB connection string for rooms and chat history.
 
 PostgreSQL authentication is currently implemented. MongoDB authentication support is planned.
 
@@ -92,6 +92,16 @@ When using PostgreSQL for authentication (`AUTH_DB=postgres`):
 The application database user has only `SELECT` and `INSERT` permissions on the `users` table.
 
 Keep database credentials private and never commit your `.env` file.
+
+### MongoDB Setup
+
+Rooms and chat history are stored in MongoDB. After `MONGODB_URI` is set in `server/.env`, create the three chat rooms from the repository root:
+
+```bash
+npm run seed --prefix server
+```
+
+This only needs to run once per database. It is safe to run again: rooms that already exist are left alone.
 
 ### Run
 
