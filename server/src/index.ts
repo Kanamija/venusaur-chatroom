@@ -7,6 +7,7 @@ import { connectToDatabase } from './db/connect.js';
 
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
 import userRoutes from './routes/userRoutes.js';
+import { getRoomMessages } from './controllers/roomController.js';
 
 const authDb = process.env.AUTH_DB;
 if (authDb !== 'postgres') throw new Error('Invalid AUTH_DB');
@@ -95,6 +96,13 @@ io.on('connect', (socket) => {
 
 // User Routes
 app.use('/api/users', userRoutes);
+
+app.get('/api/rooms/:id/messages', getRoomMessages, (_req, res) => {
+  res.status(200).json({
+    success: true,
+    messages: res.locals.messages,
+  });
+});
 
 // Global Express error handler
 app.use(globalErrorHandler);
