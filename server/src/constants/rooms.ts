@@ -1,0 +1,1 @@
+export const ROOM_NAMES = ['Venusaur', 'Charizard', 'Pikachu'] as const;
