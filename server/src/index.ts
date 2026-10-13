@@ -3,6 +3,7 @@ import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import cookieParser from 'cookie-parser';
 import { connectToDatabase } from './db/connect.js';
 
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
@@ -34,6 +35,7 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
