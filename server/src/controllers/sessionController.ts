@@ -5,6 +5,7 @@ import {
   createSession,
   findSession,
   deleteSession,
+  deleteExpiredSessions,
 } from '../models/sessionModel.js';
 import AppError from '../errors/AppError.js';
 
@@ -19,7 +20,7 @@ export const startSession: RequestHandler = async (_req, res, next) => {
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   // Save the session to the database.
-
+  await deleteExpiredSessions();
   await createSession(sessionId, user.id, expiresAt);
 
   // Set the session cookie.

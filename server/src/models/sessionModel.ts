@@ -51,3 +51,17 @@ export async function deleteSession(sessionId: string): Promise<void> {
     log: 'sessionModel.deleteSession: Unsupported AUTH_DB',
   });
 }
+
+// deleteExpiredSessions() — Remove all expired sessions.
+export async function deleteExpiredSessions(): Promise<void> {
+  if (process.env.AUTH_DB === 'postgres') {
+    const postgresSession = await import('./postgresSession.js');
+    return postgresSession.deleteExpiredSessions();
+  }
+
+  if (process.env.AUTH_DB === 'mongodb') {
+    throw new AppError('MongoDB authentication is not implemented');
+  }
+
+  throw new AppError('Unsupported authentication database');
+}

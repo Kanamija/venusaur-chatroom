@@ -33,3 +33,11 @@ export async function deleteSession(sessionId: string): Promise<void> {
     [sessionId],
   );
 }
+
+// deleteExpiredSessions() — Remove all expired sessions.
+export async function deleteExpiredSessions(): Promise<void> {
+  await query(
+    `DELETE FROM sessions
+     WHERE expires_at <= NOW()`,
+  );
+}
