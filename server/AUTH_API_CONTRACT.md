@@ -101,7 +101,7 @@ Creates a new account.
 
 ### Login — `POST /api/users/login`
 
-Checks the username and password and creates a login session.
+Checks the username and password and creates a login session. Failed login attempts are rate-limited by IP address. Successful logins do not count toward the limit.
 
 **Request:** Send the username and password shown above.
 
@@ -113,6 +113,7 @@ Checks the username and password and creates a login session.
 
 - `400 Bad Request` — Missing or invalid credentials.
 - `401 Unauthorized` — Username or password is incorrect.
+- `429 Too Many Requests` — Too many failed login attempts.
 - `500 Internal Server Error` — Unexpected server error.
 
 ### Current User — `GET /api/users/me`

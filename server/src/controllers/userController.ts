@@ -5,6 +5,9 @@ import { type User, credentialsSchema } from '../schemas/userSchema.js';
 import { createUser, findByUsername, findById } from '../models/userModel.js';
 import AppError from '../errors/AppError.js';
 
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$4W8QBugeT6Pu7Y1nGJMhB.KA4p.x8kqLG8o6FwK1vnQNoBKTvIHrC';
+
 // registerUser() — Validate credentials and create a new user.
 export const registerUser: RequestHandler = async (req, res, next) => {
   const result = credentialsSchema.safeParse(req.body);
@@ -41,15 +44,13 @@ export const authenticateUser: RequestHandler = async (req, res, next) => {
   const { username, password } = result.data;
 
   const user = await findByUsername(username);
-  if (!user)
-    throw new AppError('Invalid username or password', 401, {
-      log: 'userController.authenticateUser: User not found',
-    });
 
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
-  if (!isMatch)
+  const hash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+  const isMatch = await bcrypt.compare(password, hash);
+
+  if (!user || !isMatch)
     throw new AppError('Invalid username or password', 401, {
-      log: 'userController.authenticateUser: Incorrect password',
+      log: `userController.authenticateUser: ${!user ? 'User not found' : 'Incorrect password'}`,
     });
 
   const authenticatedUser: User = {

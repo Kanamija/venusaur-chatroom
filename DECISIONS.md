@@ -34,11 +34,19 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Authentication Built from Scratch
 
-**Decision:** The team builds its own sign-up and login with bcrypt for password hashing, instead of using Supabase Auth. _To be confirmed by Eddie._
+**Decision:** The team builds its own sign-up and login with bcrypt for password hashing, instead of using Supabase Auth.
 
 **Reason:** Building auth by hand is part of the practice.
 
-**Consequence:** The team is responsible for hashing, verifying passwords, and keeping users logged in. How sessions or tokens work is still open.
+**Consequence:** The team is responsible for hashing passwords, verifying credentials, and managing login sessions.
+
+### Database-Backed Sessions
+
+**Decision:** Authentication uses database-backed sessions with HTTP-only cookies. PostgreSQL is currently implemented, with MongoDB authentication support planned.
+
+**Reason:** Server-side sessions allow the application to verify logged-in users and invalidate sessions during logout without introducing JWT authentication.
+
+**Consequence:** Sessions expire after 24 hours. The server verifies session cookies for protected Express routes, deletes sessions during logout, and removes expired sessions during login.
 
 ### Data Split Between Supabase and MongoDB
 
@@ -118,9 +126,11 @@ _Added October 10, 2026 by Kanami._
 
 ## Open Questions
 
-### Session Handling
+### Socket.IO Authentication
 
-After login, how does the app remember the user (for example a JWT or a server session), and how does a Socket.io connection prove who the user is? _Owners: Eddie and Tanisha_
+Socket.IO will reuse the existing database sessions to authenticate users. Unlike Express routes, Socket.IO connections do not automatically run our `verifySession` middleware. We still need to implement session verification for Socket.IO connections.
+
+_Owners: Eddie and Tanisha_
 
 ### Hosting
 

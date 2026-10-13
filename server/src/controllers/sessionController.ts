@@ -10,21 +10,27 @@ import {
 import AppError from '../errors/AppError.js';
 
 // startSession() — Generate a session ID, save it to the database, and set the cookie.
-export const startSession: RequestHandler = async (_req, res, next) => {
+export const startSession: RequestHandler = async (req, res, next) => {
   const user: User = res.locals.user;
+
+  // Remove the previous session if it belongs to this user.
+  const previousSessionId = req.cookies?.sessionId;
+  if (typeof previousSessionId === 'string') {
+    const previousUserId = await findSession(previousSessionId);
+    if (previousUserId === user.id) {
+      await deleteSession(previousSessionId);
+    }
+  }
 
   // Generate a cryptographically secure session ID.
   const sessionId = randomBytes(32).toString('hex');
-
   // Set the session to expire in 24 hours.
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
   // Save the session to the database.
   await deleteExpiredSessions();
   await createSession(sessionId, user.id, expiresAt);
 
   // Set the session cookie.
-
   res.cookie('sessionId', sessionId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
