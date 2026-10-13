@@ -6,15 +6,15 @@ Users create an account, sign in, and chat live in one of three rooms.
 
 ## Tech Stack
 
-| Layer                  | Technology          |
-| ---------------------- | ------------------- |
-| Language               | TypeScript          |
-| Frontend               | React + Vite        |
-| Backend                | Express             |
-| Real-time              | Socket.io           |
-| Users                  | Supabase (Postgres) |
-| Rooms and chat history | MongoDB             |
-| Auth                   | Custom, with bcrypt |
+| Layer                  | Technology                                              |
+| ---------------------- | ------------------------------------------------------- |
+| Language               | TypeScript                                              |
+| Frontend               | React + Vite                                            |
+| Backend                | Express                                                 |
+| Real-time              | Socket.io                                               |
+| Users                  | Supabase (Postgres)                                     |
+| Rooms and chat history | MongoDB                                                 |
+| Auth                   | bcrypt + PostgreSQL-backed sessions (HTTP-only cookies) |
 
 See `DECISIONS.md` for why.
 
@@ -76,6 +76,8 @@ Configure the following variables:
 
 PostgreSQL authentication is currently implemented. MongoDB authentication support is planned.
 
+**Production:** Set `NODE_ENV=production` and use HTTPS to enable secure session cookies.
+
 Do not commit `.env` files containing credentials.
 
 ### PostgreSQL Authentication Setup
@@ -87,9 +89,10 @@ When using PostgreSQL for authentication (`AUTH_DB=postgres`):
 3. Open `server/sql/001_create_users.sql`.
 4. Replace the placeholder password with a secure password.
 5. Execute the SQL to create the users table and restricted application user.
-6. Configure `POSTGRES_URI` in `server/.env` using the connection credentials for `chatroom_app_user`.
+6. Execute `server/sql/002_create_sessions.sql` to create the sessions table.
+7. Configure `POSTGRES_URI` in `server/.env` using the connection credentials for `chatroom_app_user`.
 
-The application database user has only `SELECT` and `INSERT` permissions on the `users` table.
+The application database user has `SELECT` and `INSERT` permissions on the `users` table, and `SELECT`, `INSERT`, and `DELETE` permissions on the `sessions` table.
 
 Keep database credentials private and never commit your `.env` file.
 
@@ -139,10 +142,11 @@ If it reports files, run `npm run format` to fix them and commit the result.
 
 ## Documentation
 
-| Document           | Owns                                                     |
-| ------------------ | -------------------------------------------------------- |
-| `README.md`        | Project introduction, setup, and running the app         |
-| `PROJECT_BRIEF.md` | Goals, MVP scope, timeline, and stretch goals            |
-| `DECISIONS.md`     | Technical decisions, their reasoning, and open questions |
-| `CONTRIBUTING.md`  | Git workflow, branches, commits, and pull requests       |
-| `AGENTS.md`        | How AI coding agents should behave in this repository    |
+| Document                      | Purpose                                                   |
+| ----------------------------- | --------------------------------------------------------- |
+| `README.md`                   | Project introduction, setup, and running the app          |
+| `PROJECT_BRIEF.md`            | Goals, MVP scope, timeline, and stretch goals             |
+| `DECISIONS.md`                | Technical decisions, their reasoning, and open questions  |
+| `CONTRIBUTING.md`             | Git workflow, branches, commits, and pull requests        |
+| `AGENTS.md`                   | How AI coding agents should behave in this repository     |
+| `server/AUTH_API_CONTRACT.md` | Authentication endpoints, responses, and session handling |
