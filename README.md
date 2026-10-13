@@ -76,6 +76,8 @@ Configure the following variables:
 
 PostgreSQL authentication is currently implemented. MongoDB authentication support is planned.
 
+**Production:** Set `NODE_ENV=production` and use HTTPS to enable secure session cookies.
+
 Do not commit `.env` files containing credentials.
 
 ### PostgreSQL Authentication Setup
@@ -130,10 +132,11 @@ If it reports files, run `npm run format` to fix them and commit the result.
 
 ## Documentation
 
-| Document           | Owns                                                     |
-| ------------------ | -------------------------------------------------------- |
-| `README.md`        | Project introduction, setup, and running the app         |
-| `PROJECT_BRIEF.md` | Goals, MVP scope, timeline, and stretch goals            |
-| `DECISIONS.md`     | Technical decisions, their reasoning, and open questions |
-| `CONTRIBUTING.md`  | Git workflow, branches, commits, and pull requests       |
-| `AGENTS.md`        | How AI coding agents should behave in this repository    |
+| Document                      | Purpose                                                   |
+| ----------------------------- | --------------------------------------------------------- |
+| `README.md`                   | Project introduction, setup, and running the app          |
+| `PROJECT_BRIEF.md`            | Goals, MVP scope, timeline, and stretch goals             |
+| `DECISIONS.md`                | Technical decisions, their reasoning, and open questions  |
+| `CONTRIBUTING.md`             | Git workflow, branches, commits, and pull requests        |
+| `AGENTS.md`                   | How AI coding agents should behave in this repository     |
+| `server/AUTH_API_CONTRACT.md` | Authentication endpoints, responses, and session handling |
