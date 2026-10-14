@@ -1,73 +1,18 @@
-// import { useState } from 'react';
-// import AuthPage from './pages/AuthPage';
-
-// function App() {
-//   const [user, setUser] = useState<{ username: string } | null>(null);
-
-//   return (
-//     <main className="min-h-screen bg-black">
-//       {!user ? (
-//         <AuthPage onAuthSuccess={(userData) => setUser(userData)} />
-//       ) : (
-//         /* Temporary view simulating landing inside The Venusaur Room */
-//         <div className="min-h-screen bg-teal-500 flex flex-col items-center justify-center text-white p-6 space-y-4 font-mono">
-//           <div className="text-center space-y-2">
-//             <h1 className="text-4xl font-bold tracking-wider uppercase">
-//               The Venusaur Room
-//             </h1>
-//             <p className="text-sm bg-teal-600/60 px-4 py-2 rounded-full border border-teal-300/40">
-//               Authenticated as:{' '}
-//               <span className="font-bold underline">{user.username}</span>
-//             </p>
-//           </div>
-
-//           <button
-//             type="button"
-//             onClick={() => setUser(null)}
-//             className="mt-6 border border-white/50 px-4 py-2 text-xs uppercase tracking-widest hover:bg-white hover:text-teal-900 transition-colors"
-//           >
-//             Sign Out (Back to Entrance)
-//           </button>
-//         </div>
-//       )}
-//     </main>
-//   );
-// }
-
-// export default App;
-
-/* 
-===================================================================
-TEMPORARILY COMMENTED OUT ORIGINAL APP.TSX CODE FOR FRONTEND TESTING
-===================================================================
-
 import { useState } from 'react';
-import AuthView from './components/AuthView';
-... original code here ...
-
-===================================================================
-*/
-
-// TEMPORARY TEST HARNESS
-import { useState } from 'react';
-// Import as named exports in case they are defined with 'export function ComponentName'
+import AuthPage from './pages/AuthPage';
 import { RoomView } from './components/RoomView';
-import './App.css';
 
 function App() {
-  // Omit setUser to fix unused variable warning
-  const [user] = useState<{ username: string } | null>({
-    username: 'TestTrainer',
-  });
+  const [user, setUser] = useState<{ username: string } | null>(null);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {user ? (
-        <RoomView />
+    <main className="min-h-screen bg-black">
+      {!user ? (
+        <AuthPage onAuthSuccess={(userData) => setUser(userData)} />
       ) : (
-        <p className="p-4 text-center text-gray-400">Login required</p>
+        <RoomView user={user} />
       )}
-    </div>
+    </main>
   );
 }
 

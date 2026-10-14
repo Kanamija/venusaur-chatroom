@@ -163,6 +163,7 @@ interface AuthViewProps {
             </div>
 
             {/* Split-Color Pokéball Button */}
+            {/* Split-Color Pokéball Button */}
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                 <button
                 type="submit"
@@ -177,7 +178,7 @@ interface AuthViewProps {
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
+                    cursor: `url('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png') 16 16, pointer`,
                     boxShadow: '0 0 15px rgba(255,255,255,0.4)',
                     margin: '0 auto 12px auto',
                 }}
