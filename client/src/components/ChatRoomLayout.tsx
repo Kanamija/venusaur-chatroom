@@ -34,6 +34,7 @@ export const ChatRoomLayout: React.FC<ChatRoomLayoutProps> = ({
             type="text"
             value={inputText}
             onChange={(e) => onInputChange(e.target.value)}
+            aria-label={`Message The ${theme.name} Room`} // Added accessible label
             placeholder={`Message The ${theme.name} Room...`}
             className="flex-1 bg-black/40 border border-white/20 text-white placeholder-gray-400 rounded-lg px-4 py-3 focus:outline-none focus:border-white font-mono text-sm"
           />

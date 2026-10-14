@@ -81,18 +81,29 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     // Clear feed when switching room views
     setMessages([]);
 
-    // 1. Send plain room string per Kanami's backend spec ('Venusaur', 'Charizard', 'Pikachu')
+    // 1. Join room
     socket.emit('join_room', currentRoomName);
 
-    // 2. Subscribe to incoming messages
-    const handleReceiveMessage = (newMessage: Message) => {
-      if (newMessage.roomId === currentRoomName) {
-        setMessages((prev) => [...prev, newMessage]);
+    // 2. Define event handler that maps incoming backend socket data
+    const handleReceiveMessage = (incomingData: any) => {
+      if (incomingData.roomId === currentRoomName) {
+        const mappedMessage: Message = {
+          roomId: incomingData.roomId,
+          text: incomingData.content || incomingData.text || '',
+          username: incomingData.username || incomingData.user || 'Trainer',
+          createdAt:
+            incomingData.timestamp ||
+            incomingData.createdAt ||
+            new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, mappedMessage]);
       }
     };
 
+    // 3. Attach socket listener
     socket.on('receive_message', handleReceiveMessage);
 
+    // 4. Cleanup listener on unmount / room change
     return () => {
       socket.off('receive_message', handleReceiveMessage);
     };
@@ -109,11 +120,10 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     const currentUsername = user?.username || 'Trainer';
 
     if (socket) {
-      // Emit live message object to socket server
-      socket.emit('send_message', {
-        roomId: currentRoomName,
-        text: inputText,
-      });
+  socket.emit('send_message', {
+    roomId: currentRoomName,
+    content: inputText, // Changed from 'text' to 'content'
+  });
     } else {
       // Local optimistic fallback if socket isn't connected yet
       const newMessage: Message = {
