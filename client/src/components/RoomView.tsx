@@ -120,10 +120,10 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     const currentUsername = user?.username || 'Trainer';
 
     if (socket) {
-  socket.emit('send_message', {
-    roomId: currentRoomName,
-    content: inputText, // Changed from 'text' to 'content'
-  });
+      socket.emit('send_message', {
+        roomId: currentRoomName,
+        text: inputText, // Changed from 'text' to 'content'
+      });
     } else {
       // Local optimistic fallback if socket isn't connected yet
       const newMessage: Message = {
