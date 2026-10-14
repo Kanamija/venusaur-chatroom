@@ -104,6 +104,26 @@ _Added October 10, 2026 by Kanami. To be confirmed by Tanisha._
 
 _Added October 10, 2026 by Kanami._
 
+### Socket.io Event Shapes
+
+**Decision:** The chat uses four custom Socket.io events.
+
+Sent by the browser:
+
+- `join_room`: the room's name as plain text, for example `'Venusaur'`.
+- `send_message`: `{ roomId, text }`. `roomId` is a room name. `text` is trimmed and must be 1 to 1000 characters.
+
+Sent by the server:
+
+- `receive_message`: the saved message, with `roomId`, `userId`, `username`, `text`, and `createdAt`. It goes to everyone in the room, including the sender.
+- `error`: `{ message }`. It goes only to the browser that sent a bad event, such as an unknown room or an empty message.
+
+**Reason:** The fields match the `Message` model and the history route, so the frontend uses one message type for both old and new messages. Validating on the server means a bad payload is rejected before it is saved or broadcast.
+
+**Consequence:** The client does not add its own message to the screen when sending. It waits for `receive_message`, which confirms the message was saved. Until Socket.io reads the logged-in user from the session, every message is saved with the username `Guest`.
+
+_Added October 13, 2026 by Kanami. Matches the client in Tanisha's `feat/reusable-components`._
+
 ### Loading Environment Variables
 
 **Decision:** The `.env` file lives in `server/`. The server loads it with `import 'dotenv/config'` as the first line of `server/src/index.ts`. Standalone scripts, such as the room seed script, start with the same import.
