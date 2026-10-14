@@ -122,7 +122,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     if (socket) {
       socket.emit('send_message', {
         roomId: currentRoomName,
-        text: inputText, // Changed from 'text' to 'content'
+        text: inputText,
       });
     } else {
       // Local optimistic fallback if socket isn't connected yet
