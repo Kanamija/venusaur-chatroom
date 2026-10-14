@@ -13,6 +13,9 @@ export function registerChatHandlers(io: Server) {
         socket.emit('error', { message: 'Unknown room' });
         return;
       }
+      for (const joinedRoom of socket.rooms) {
+        if (joinedRoom !== socket.id) socket.leave(joinedRoom);
+      }
       socket.join(result.data);
       console.log(`Socket ${socket.id} joined room: ${result.data}`);
     });
