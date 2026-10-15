@@ -5,12 +5,14 @@ interface RoomHeaderProps {
   rooms: RoomTheme[];
   currentRoom: string;
   onSelectRoom: (roomName: string) => void;
+  onLogout: () => void;
 }
 
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
   rooms,
   currentRoom,
   onSelectRoom,
+  onLogout,
 }) => {
   return (
     <nav className="flex items-center justify-between p-4 bg-black/60 border-b border-gray-800">
@@ -40,6 +42,12 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           );
         })}
       </div>
+      <button
+        onClick={onLogout}
+        className="px-4 py-2 rounded-lg font-mono text-sm font-bold bg-gray-800 text-gray-300 hover:bg-gray-700"
+      >
+        Sign out
+      </button>
     </nav>
   );
 };
