@@ -74,36 +74,55 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Handle room joining and socket message subscriptions
+  // 1. Fetch recent messages (up to 50) via REST API when entering or switching rooms
+  useEffect(() => {
+    if (!currentRoomName) return;
+
+    fetch(`/api/messages/${currentRoomName}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch room message history');
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          // Take the most recent 50 messages matching Kanami's schema
+          const recent50 = data.slice(-50);
+          const formattedHistory: Message[] = recent50.map((msg: any) => ({
+            roomId: msg.roomId || currentRoomName,
+            text: msg.text || '',
+            username: msg.username || 'Trainer',
+            createdAt: msg.createdAt || new Date().toISOString(),
+          }));
+          setMessages(formattedHistory);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching room history:', err);
+      });
+  }, [currentRoomName]);
+
+  // 2. Handle room joining and real-time socket message subscription
   useEffect(() => {
     if (!socket) return;
 
-    // Clear feed when switching room views
-    setMessages([]);
-
-    // 1. Join room
+    // Join room
     socket.emit('join_room', currentRoomName);
 
-    // 2. Define event handler that maps incoming backend socket data
+    // Listen for new incoming real-time messages
     const handleReceiveMessage = (incomingData: any) => {
       if (incomingData.roomId === currentRoomName) {
         const mappedMessage: Message = {
           roomId: incomingData.roomId,
-          text: incomingData.content || incomingData.text || '',
-          username: incomingData.username || incomingData.user || 'Trainer',
-          createdAt:
-            incomingData.timestamp ||
-            incomingData.createdAt ||
-            new Date().toISOString(),
+          text: incomingData.text || '',
+          username: incomingData.username || 'Trainer',
+          createdAt: incomingData.createdAt || new Date().toISOString(),
         };
         setMessages((prev) => [...prev, mappedMessage]);
       }
     };
 
-    // 3. Attach socket listener
     socket.on('receive_message', handleReceiveMessage);
 
-    // 4. Cleanup listener on unmount / room change
     return () => {
       socket.off('receive_message', handleReceiveMessage);
     };
@@ -120,9 +139,11 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     const currentUsername = user?.username || 'Trainer';
 
     if (socket) {
+      // Send using 'text' property to align with Kanami's mongoMessage schema
       socket.emit('send_message', {
         roomId: currentRoomName,
         text: inputText,
+        username: currentUsername,
       });
     } else {
       // Local optimistic fallback if socket isn't connected yet
