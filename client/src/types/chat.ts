@@ -1,4 +1,5 @@
 export interface Message {
+  _id?: string;
   roomId: string;
   text: string;
   username: string;

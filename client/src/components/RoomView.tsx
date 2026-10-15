@@ -73,63 +73,71 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     scrollToBottom();
   }, [messages]);
 
-  // 1. Fetch recent message history (up to 50) when entering or switching rooms
+  // 1. Clear state on room switch and fetch fresh history for the active room
   useEffect(() => {
-    if (!currentRoomName) return;
+    let ignore = false;
+    setMessages([]); // Clear old room messages immediately so they don't bleed over
 
-    setMessages([]);
-
-    fetch(`/api/messages/${currentRoomName}`)
+    fetch(`/api/rooms/${currentRoomName}/messages`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch room history');
         return res.json();
       })
       .then((data) => {
-        if (Array.isArray(data)) {
-          const recent50 = data.slice(-50);
+        if (ignore) return; // Ignore if user switched rooms while fetching
+
+        const rawMessages = data.messages || data;
+        if (Array.isArray(rawMessages)) {
+          const recent50 = rawMessages.slice(-50);
           const formattedHistory: Message[] = recent50.map((msg: any) => ({
+            _id: msg._id,
             roomId: msg.roomId || currentRoomName,
-            text: msg.text || '',
+            text: msg.text || msg.content || '',
             username: msg.username || 'Trainer',
             createdAt: msg.createdAt || new Date().toISOString(),
           }));
+
           setMessages(formattedHistory);
         }
       })
       .catch((err) => {
-        console.error('Error fetching room history:', err);
+        if (!ignore) console.error('Error fetching room history:', err);
       });
+
+    return () => {
+      ignore = true; // Cleanup flag when room changes
+    };
   }, [currentRoomName]);
 
-  // 2. Handle room joining and strict real-time socket filtering
+  // 2. Handle room joining and live socket message updates with strict room filtering
   useEffect(() => {
     if (!socket) return;
 
     socket.emit('join_room', currentRoomName);
 
     const handleReceiveMessage = (incomingData: any) => {
-      // STRICT FILTER: Only display the message if its roomId matches the active room
+      // STRICT FILTER: Only process messages belonging to the currently active room
       if (incomingData.roomId === currentRoomName) {
         const mappedMessage: Message = {
+          _id: incomingData._id,
           roomId: incomingData.roomId,
           text: incomingData.text || '',
           username: incomingData.username || 'Trainer',
           createdAt: incomingData.createdAt || new Date().toISOString(),
         };
 
-        setMessages((prev) => {
-          // Prevent duplicates
-          if (
-            prev.some(
-              (m) =>
-                m.createdAt === mappedMessage.createdAt &&
-                m.text === mappedMessage.text &&
-                m.username === mappedMessage.username,
-            )
-          ) {
-            return prev;
-          }
-          return [...prev, mappedMessage];
+        setMessages((prevMessages) => {
+          // Prevent duplicates by checking _id or unique content combination
+          const exists = prevMessages.some(
+            (msg) =>
+              (msg._id && msg._id === mappedMessage._id) ||
+              (msg.createdAt === mappedMessage.createdAt &&
+                msg.text === mappedMessage.text &&
+                msg.username === mappedMessage.username),
+          );
+
+          if (exists) return prevMessages;
+          return [...prevMessages, mappedMessage];
         });
       }
     };
@@ -194,7 +202,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
 
           return (
             <ChatBubble
-              key={msg.createdAt || index}
+              key={msg._id || msg.createdAt || index}
               message={msg}
               accentColorClass={dynamicBubbleColor}
             />
