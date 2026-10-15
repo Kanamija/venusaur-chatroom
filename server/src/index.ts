@@ -24,6 +24,11 @@ try {
 }
 
 const app = express();
+
+// Railway runs one proxy in front of the app.
+// Trust it so req.ip is the user's real IP (used by the login rate limiter).
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
