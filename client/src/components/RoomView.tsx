@@ -54,9 +54,14 @@ const ROOM_CONFIGS: RoomTheme[] = [
 interface RoomViewProps {
   user?: { username: string } | null;
   socket?: any;
+  onLogout: () => void;
 }
 
-export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
+export const RoomView: React.FC<RoomViewProps> = ({
+  user,
+  socket,
+  onLogout,
+}) => {
   const [currentRoomName, setCurrentRoomName] = useState<string>('Venusaur');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState<string>('');
@@ -157,23 +162,16 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
+    // Not connected yet: keep the draft so the user can send it once connected.
+    if (!socket) return;
+
     const currentUsername = user?.username || 'Trainer';
 
-    if (socket) {
-      socket.emit('send_message', {
-        roomId: currentRoomName,
-        text: inputText,
-        username: currentUsername,
-      });
-    } else {
-      const newMessage: Message = {
-        roomId: currentRoomName,
-        text: inputText,
-        username: currentUsername,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, newMessage]);
-    }
+    socket.emit('send_message', {
+      roomId: currentRoomName,
+      text: inputText,
+      username: currentUsername,
+    });
 
     setInputText('');
   };
@@ -184,6 +182,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
         rooms={ROOM_CONFIGS}
         currentRoom={currentRoomName}
         onSelectRoom={handleSelectRoom}
+        onLogout={onLogout}
       />
 
       <ChatRoomLayout

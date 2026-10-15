@@ -29,7 +29,10 @@ export function registerChatHandlers(io: Server) {
           return;
         }
 
-        const user = { userId: socket.data.userId, username: socket.data.username };
+        const user = {
+          userId: socket.data.userId,
+          username: socket.data.username,
+        };
 
         const savedMessage = await saveMessage({ ...result.data, ...user });
         io.to(savedMessage.roomId).emit('receive_message', savedMessage);
