@@ -13,7 +13,7 @@ import { loginRateLimiter } from '../controllers/loginRateLimiter.js';
 
 const router = Router();
 
-router.post('/signup', registerUser, (_req, res) => {
+router.post('/signup', registerUser, startSession, (_req, res) => {
   res.status(201).json({
     success: true,
     user: res.locals.user,
