@@ -24,7 +24,6 @@ const COMPLEMENTARY_BUBBLE_STYLES: Record<
   },
 };
 
-// Define all 3 rooms with their complementary accent bases
 const ROOM_CONFIGS: RoomTheme[] = [
   {
     name: 'Venusaur',
@@ -74,36 +73,77 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Handle room joining and socket message subscriptions
+  // 1. Clear state on room switch and fetch fresh history for the active room
+  useEffect(() => {
+    let ignore = false;
+    setMessages([]); // Clear old room messages immediately so they don't bleed over
+
+    fetch(`/api/rooms/${currentRoomName}/messages`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch room history');
+        return res.json();
+      })
+      .then((data) => {
+        if (ignore) return; // Ignore if user switched rooms while fetching
+
+        const rawMessages = data.messages || data;
+        if (Array.isArray(rawMessages)) {
+          const recent50 = rawMessages.slice(-50);
+          const formattedHistory: Message[] = recent50.map((msg: any) => ({
+            _id: msg._id,
+            roomId: msg.roomId || currentRoomName,
+            text: msg.text || msg.content || '',
+            username: msg.username || 'Trainer',
+            createdAt: msg.createdAt || new Date().toISOString(),
+          }));
+
+          setMessages(formattedHistory);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) console.error('Error fetching room history:', err);
+      });
+
+    return () => {
+      ignore = true; // Cleanup flag when room changes
+    };
+  }, [currentRoomName]);
+
+  // 2. Handle room joining and live socket message updates with strict room filtering
   useEffect(() => {
     if (!socket) return;
 
-    // Clear feed when switching room views
-    setMessages([]);
-
-    // 1. Join room
     socket.emit('join_room', currentRoomName);
 
-    // 2. Define event handler that maps incoming backend socket data
     const handleReceiveMessage = (incomingData: any) => {
+      // STRICT FILTER: Only process messages belonging to the currently active room
       if (incomingData.roomId === currentRoomName) {
         const mappedMessage: Message = {
+          _id: incomingData._id,
           roomId: incomingData.roomId,
-          text: incomingData.content || incomingData.text || '',
-          username: incomingData.username || incomingData.user || 'Trainer',
-          createdAt:
-            incomingData.timestamp ||
-            incomingData.createdAt ||
-            new Date().toISOString(),
+          text: incomingData.text || '',
+          username: incomingData.username || 'Trainer',
+          createdAt: incomingData.createdAt || new Date().toISOString(),
         };
-        setMessages((prev) => [...prev, mappedMessage]);
+
+        setMessages((prevMessages) => {
+          // Prevent duplicates by checking _id or unique content combination
+          const exists = prevMessages.some(
+            (msg) =>
+              (msg._id && msg._id === mappedMessage._id) ||
+              (msg.createdAt === mappedMessage.createdAt &&
+                msg.text === mappedMessage.text &&
+                msg.username === mappedMessage.username),
+          );
+
+          if (exists) return prevMessages;
+          return [...prevMessages, mappedMessage];
+        });
       }
     };
 
-    // 3. Attach socket listener
     socket.on('receive_message', handleReceiveMessage);
 
-    // 4. Cleanup listener on unmount / room change
     return () => {
       socket.off('receive_message', handleReceiveMessage);
     };
@@ -123,9 +163,9 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
       socket.emit('send_message', {
         roomId: currentRoomName,
         text: inputText,
+        username: currentUsername,
       });
     } else {
-      // Local optimistic fallback if socket isn't connected yet
       const newMessage: Message = {
         roomId: currentRoomName,
         text: inputText,
@@ -162,7 +202,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
 
           return (
             <ChatBubble
-              key={msg.createdAt || index}
+              key={msg._id || msg.createdAt || index}
               message={msg}
               accentColorClass={dynamicBubbleColor}
             />
