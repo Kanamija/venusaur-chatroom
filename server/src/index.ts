@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import express from 'express';
 import { createServer } from 'http';
+import path from 'node:path';
 import { Server } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import { connectToDatabase } from './db/connect.js';
@@ -36,6 +37,9 @@ const io = new Server(httpServer, {
 
 const PORT = Number(process.env.PORT) || 3000;
 
+// Built frontend files from Vite
+const clientDistPath = path.join(import.meta.dirname, '../../client/dist');
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -56,6 +60,9 @@ app.use('/api/users', userRoutes);
 
 // Room Routes
 app.use('/api/rooms', roomRoutes);
+
+// Serve the built frontend
+app.use(express.static(clientDistPath));
 
 // Global Express error handler
 app.use(globalErrorHandler);
