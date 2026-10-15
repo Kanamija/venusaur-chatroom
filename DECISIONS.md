@@ -8,9 +8,9 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Tech Stack
 
-**Decision:** React + Vite, Express, Socket.io, MongoDB, Supabase, and bcrypt.
+**Decision:** React + Vite, Express, Socket.io, MongoDB, PostgreSQL (Supabase), and bcrypt.
 
-**Reason:** The team chose these technologies to practice them during the project.
+**Reason:** The team chose these technologies to practice them during the project. MongoDB is the primary database, while PostgreSQL remains available as an optional authentication alternative.
 
 ### TypeScript
 
@@ -20,10 +20,9 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Area Ownership
 
-**Decision:** Eddie owns Supabase and authentication. Kanami owns MongoDB, the Express routes and middleware, and Socket.io. Tanisha owns the frontend.
+**Decision:** Eddie owns authentication, including MongoDB and PostgreSQL implementations. Kanami owns MongoDB chat data, Express routes and middleware, and Socket.io. Tanisha owns the frontend.
 
-**Reason:** Each person goes deep on one technology, and shared frontend work keeps everyone busy.
-
+**Reason:** Each person goes deep on one technology.
 _Updated October 12, 2026: Tanisha took over the frontend and Kanami took over Express and Socket.io._
 
 ### Public Repository with a Protected `main`
@@ -40,27 +39,29 @@ _Updated October 12, 2026: Tanisha took over the frontend and Kanami took over E
 
 **Reason:** Building auth by hand is part of the practice.
 
-**Consequence:** The team is responsible for hashing passwords, verifying credentials, and managing login sessions.
+**Consequence:** The team is responsible for hashing passwords, verifying credentials, and managing login sessions. Authentication supports MongoDB and PostgreSQL through a shared database-independent interface.
 
 ### Database-Backed Sessions
 
-**Decision:** Authentication uses database-backed sessions with HTTP-only cookies. PostgreSQL is currently implemented, with MongoDB authentication support planned.
+**Decision:** Authentication uses database-backed sessions with HTTP-only cookies. MongoDB is the primary authentication database, with PostgreSQL supported as an alternative.
 
-**Reason:** Server-side sessions allow the application to verify logged-in users and invalidate sessions during logout without introducing JWT authentication.
+**Reason:** Server-side sessions allow the application to verify logged-in users and invalidate sessions during logout without introducing JWT authentication. Supporting both databases provides practice implementing authentication with PostgreSQL and MongoDB.
 
-**Consequence:** Sessions expire after 24 hours. The server verifies session cookies for protected Express routes, deletes sessions during logout, and removes expired sessions during login.
+**Consequence:** Sessions expire after 24 hours. The server verifies session cookies for protected Express routes and Socket.IO connections, deletes sessions during logout, and removes expired sessions during login.
 
-### Data Split Between Supabase and MongoDB
+### Database Architecture
 
-**Decision:** Supabase (Postgres) stores users. MongoDB stores rooms and chat history.
+**Decision:** MongoDB is the primary database for users, sessions, rooms, and chat history. PostgreSQL (Supabase) remains supported as an optional authentication database, selected through `AUTH_DB`.
 
-**Reason:** Each owner gets a distinct data area to work in. Every message belongs to a room, so keeping rooms next to messages keeps the MongoDB side self-contained, and it leaves Supabase focused on users and authentication.
+**Reason:** The team initially divided users and chat data between PostgreSQL and MongoDB to practice both technologies. MongoDB was later selected as the primary database to simplify deployment while retaining the PostgreSQL authentication implementation.
 
-**Consequence:** Messages in MongoDB refer to users that live in Supabase, so both sides must agree on the user ID format. Kanami owns the `Room` model and the script that seeds the rooms.
+**Consequence:** When `AUTH_DB=mongodb`, all application data is stored in MongoDB. When `AUTH_DB=postgres`, users and sessions are stored in PostgreSQL, while rooms and chat history remain in MongoDB. Both implementations return user IDs as strings so the chat functionality works with either database.
 
-_Updated October 7, 2026: rooms moved from Supabase to MongoDB, agreed by Eddie and Kanami._
+_Updated October 7, 2026: Rooms moved from Supabase to MongoDB, agreed by Eddie and Kanami._
 
-_Updated October 10, 2026: the user ID format is settled. The auth code returns the Postgres user ID as a string, and messages store it as a string in `userId`._
+_Updated October 10, 2026: User IDs are represented as strings across authentication and chat._
+
+_Updated October 14, 2026: MongoDB authentication completed and selected as the primary configuration. PostgreSQL remains available as an alternative._
 
 ### Fixed Rooms for MVP
 
@@ -122,15 +123,25 @@ Sent by the server:
 
 **Reason:** The fields match the `Message` model and the history route, so the frontend uses one message type for both old and new messages. Validating on the server means a bad payload is rejected before it is saved or broadcast.
 
-**Consequence:** The client does not add its own message to the screen when sending. It waits for `receive_message`, which confirms the message was saved. Until Socket.io reads the logged-in user from the session, every message is saved with the username `Guest`.
+**Consequence:** The client does not add its own message to the screen when sending. It waits for `receive_message`, which confirms the message was saved. Socket.IO connections are authenticated using the user's database session, and the server retrieves the user ID and username from the authenticated session.
 
 _Added October 13, 2026 by Kanami. Matches the client in Tanisha's `feat/reusable-components`._
+
+### Socket.IO Authentication
+
+**Decision:** Socket.IO connections are authenticated using the same database-backed sessions as Express routes.
+
+**Reason:** Reusing existing sessions provides consistent authentication across HTTP requests and real-time connections without introducing a separate authentication mechanism.
+
+**Consequence:** Socket.IO middleware validates the session cookie before allowing a connection. The authenticated user ID and username are stored in `socket.data` for use by chat event handlers. Connections without a valid session are rejected.
+
+_Implemented October 14, 2026._
 
 ### Loading Environment Variables
 
 **Decision:** The `.env` file lives in `server/`. The server loads it with `import 'dotenv/config'` as the first line of `server/src/index.ts`. Standalone scripts, such as the room seed script, start with the same import.
 
-**Reason:** All secrets so far (`MONGODB_URI`, `POSTGRES_URI`) are used only by the server, so the file sits next to the code that reads it.
+**Reason:** All database credentials (`MONGODB_URI`, `POSTGRES_URI`) are used only by the server, so the file sits next to the code that reads it.
 
 **Consequence:** Server commands must run with `server/` as the working directory, which `npm run <script> --prefix server` and the root `npm run dev` already do. The `dev` and `start` scripts in `server/package.json` also still pass Node's `--env-file-if-exists=.env` flag, which is now redundant.
 
@@ -147,12 +158,6 @@ _Moved from Open Questions on October 10, 2026._
 _Added October 10, 2026 by Kanami._
 
 ## Open Questions
-
-### Socket.IO Authentication
-
-Socket.IO will reuse the existing database sessions to authenticate users. Unlike Express routes, Socket.IO connections do not automatically run our `verifySession` middleware. We still need to implement session verification for Socket.IO connections.
-
-_Owners: Eddie and Tanisha_
 
 ### Hosting
 

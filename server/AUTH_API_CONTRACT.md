@@ -36,9 +36,9 @@ Signup, login, and `/me` return:
 {
   "success": true,
   "user": {
-    "id": "1",
+    "id": "6ad03d426a55a6d633b45dfc",
     "username": "testuser",
-    "createdAt": "2026-10-12T18:30:00.000Z"
+    "createdAt": "2026-10-15T02:41:06.861Z"
   }
 }
 ```
@@ -51,7 +51,7 @@ The `user` object contains:
 | `username`  | string | Username              |
 | `createdAt` | string | Account creation date |
 
-Passwords are never returned.
+Passwords are never returned. User IDs are strings regardless of the authentication database.
 
 Logout returns:
 
@@ -81,17 +81,17 @@ The HTTP status code indicates whether the request succeeded or failed.
 
 ### Signup — `POST /api/users/signup`
 
-Creates a new account.
+Creates a new account and automatically logs the user in by creating a session.
 
 **Request:** Send the username and password shown above.
 
 - Username cannot be empty and is trimmed.
 - Usernames must be unique.
-- Signup does not automatically log the user in.
+- Usernames are case-sensitive.
 
 **Success:**
 
-- `201 Created` — Account created. Returns the user.
+- `201 Created` — Account created and user logged in. Returns the user and sets a session cookie.
 
 **Errors:**
 
@@ -107,7 +107,7 @@ Checks the username and password and creates a login session. Failed login attem
 
 **Success:**
 
-- `200 OK` — Login successful. Returns the user.
+- `200 OK` — Login successful. Returns the user and sets a session cookie.
 
 **Errors:**
 
@@ -185,13 +185,13 @@ if (response.ok) {
 
 **`credentials: 'include'`** tells the browser to send and accept cookies.
 
-Use it for login, `/me`, and logout.
+Use it for signup, login, `/me`, and logout.
 
 ### What React Should Do
 
 | Action            | Frontend behavior                           |
 | ----------------- | ------------------------------------------- |
-| Signup succeeds   | Show the login form                         |
+| Signup succeeds   | Save `data.user` in React state             |
 | Login succeeds    | Save `data.user` in React state             |
 | Login fails       | Display `data.message`                      |
 | App loads         | Call `/me` to check for an existing session |
@@ -204,18 +204,42 @@ For unexpected server errors, display an error rather than automatically logging
 
 The application uses a database to remember logged-in users.
 
-1. Login creates a session in the database.
+1. Signup or login creates a session in the selected authentication database.
 2. The browser receives a cookie named `sessionId`.
 3. The browser automatically sends that cookie with future requests.
 4. Express checks the session to identify the user.
+
+MongoDB is the primary authentication database. PostgreSQL is supported as an optional alternative through `AUTH_DB`. The API behaves the same regardless of the selected database.
 
 **Important details:**
 
 - The frontend does not need to read or store the session ID.
 - The cookie is HTTP-only, meaning JavaScript cannot read it.
 - Sessions expire after 24 hours.
-- Expired sessions are removed from the database whenever someone logs in.
+- Expired sessions are removed from the database whenever someone signs up or logs in.
 - Logging out ends the current session, not sessions on other devices.
+
+### Socket.IO Authentication
+
+Socket.IO connections use the same session cookie as Express requests. The server verifies the session during the Socket.IO handshake and rejects connections without a valid session.
+
+The frontend must establish the Socket.IO connection after signup or login and include credentials in the connection.
+
+Example:
+
+```ts
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3000', {
+  withCredentials: true,
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Socket.IO authentication failed:', error.message);
+});
+```
+
+The server stores the authenticated user's ID and username in `socket.data`, so the frontend does not need to send these values with chat events.
 
 **Note:** The `fetch()` example assumes Vite is configured to forward `/api` requests to Express.
 

@@ -11,9 +11,8 @@ export async function createSession(
     return createSession(sessionId, userId, expiresAt);
   }
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'sessionModel.createSession: MongoDB session model not implemented yet',
-    });
+    const { createSession } = await import('./mongoSession.js');
+    return createSession(sessionId, userId, expiresAt);
   }
   throw new AppError('Internal Server Error', 500, {
     log: 'sessionModel.createSession: Unsupported AUTH_DB',
@@ -27,9 +26,8 @@ export async function findSession(sessionId: string): Promise<string | null> {
     return findSession(sessionId);
   }
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'sessionModel.findSession: MongoDB session model not implemented yet',
-    });
+    const { findSession } = await import('./mongoSession.js');
+    return findSession(sessionId);
   }
   throw new AppError('Internal Server Error', 500, {
     log: 'sessionModel.findSession: Unsupported AUTH_DB',
@@ -43,9 +41,8 @@ export async function deleteSession(sessionId: string): Promise<void> {
     return deleteSession(sessionId);
   }
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'sessionModel.deleteSession: MongoDB session model not implemented yet',
-    });
+    const { deleteSession } = await import('./mongoSession.js');
+    return deleteSession(sessionId);
   }
   throw new AppError('Internal Server Error', 500, {
     log: 'sessionModel.deleteSession: Unsupported AUTH_DB',
@@ -60,7 +57,8 @@ export async function deleteExpiredSessions(): Promise<void> {
   }
 
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('MongoDB authentication is not implemented');
+    const { deleteExpiredSessions } = await import('./mongoSession.js');
+    return deleteExpiredSessions();
   }
 
   throw new AppError('Unsupported authentication database');
