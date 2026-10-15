@@ -6,26 +6,25 @@ Users create an account, sign in, and chat live in one of three rooms.
 
 ## Tech Stack
 
-| Layer                  | Technology                                              |
-| ---------------------- | ------------------------------------------------------- |
-| Language               | TypeScript                                              |
-| Frontend               | React + Vite                                            |
-| Backend                | Express                                                 |
-| Real-time              | Socket.io                                               |
-| Users                  | Supabase (Postgres)                                     |
-| Rooms and chat history | MongoDB                                                 |
-| Auth                   | bcrypt + PostgreSQL-backed sessions (HTTP-only cookies) |
+| Layer                  | Technology                                            |
+| ---------------------- | ----------------------------------------------------- |
+| Language               | TypeScript                                            |
+| Frontend               | React + Vite                                          |
+| Backend                | Express                                               |
+| Real-time              | Socket.io                                             |
+| Users and sessions     | MongoDB (PostgreSQL optional)                         |
+| Rooms and chat history | MongoDB                                               |
+| Auth                   | bcrypt + database-backed sessions (HTTP-only cookies) |
 
 See `DECISIONS.md` for why.
 
 ## Team
 
-| Name     | Owns                                           |
-| -------- | ---------------------------------------------- |
-| Eddie    | Supabase (users) and authentication            |
-| Kanami   | MongoDB (rooms and chat history)               |
-| Tanisha  | Express and Socket.io                          |
-| Everyone | Frontend components (first come, first served) |
+| Name    | Owns                                                     |
+| ------- | -------------------------------------------------------- |
+| Eddie   | MongoDB and PostgreSQL authentication                    |
+| Kanami  | MongoDB (rooms and chat history), Express, and Socket.io |
+| Tanisha | Frontend                                                 |
 
 ## Project Structure
 
@@ -70,19 +69,36 @@ cp .env.example .env
 
 Configure the following variables:
 
-- `AUTH_DB=postgres` — Selects PostgreSQL for authentication.
-- `POSTGRES_URI` — PostgreSQL connection string from Supabase.
-- `MONGODB_URI` — MongoDB connection string for rooms and chat history.
+- `AUTH_DB=mongodb` — Selects MongoDB for authentication (recommended).
+- `MONGODB_URI` — MongoDB connection string for rooms, chat history, users and sessions.
+- `POSTGRES_URI` — PostgreSQL connection string (only required when `AUTH_DB=postgres`).
 
-PostgreSQL authentication is currently implemented. MongoDB authentication support is planned.
+MongoDB is the primary database for the application. PostgreSQL authentication is also supported but requires additional setup.
 
 **Production:** Set `NODE_ENV=production` and use HTTPS to enable secure session cookies.
 
 Do not commit `.env` files containing credentials.
 
-### PostgreSQL Authentication Setup
+### MongoDB Setup
 
-When using PostgreSQL for authentication (`AUTH_DB=postgres`):
+MongoDB stores rooms and chat history regardless of the authentication database.
+
+1. Configure `MONGODB_URI` in `server/.env`.
+2. Create the three chat rooms from the repository root:
+
+```bash
+npm run seed --prefix server
+```
+
+This only needs to run once per database. It is safe to run again: rooms that already exist are left alone.
+
+When using MongoDB for authentication, set `AUTH_DB=mongodb` in `server/.env`. Mongoose automatically creates the `users` and `sessions` collections when documents are inserted. No additional authentication database setup is required.
+
+### PostgreSQL Authentication Setup (Optional)
+
+PostgreSQL is supported as an alternative authentication database but is not required for the standard application setup.
+
+To use PostgreSQL for authentication:
 
 1. Create a Supabase PostgreSQL project.
 2. Open the SQL Editor.
@@ -91,20 +107,13 @@ When using PostgreSQL for authentication (`AUTH_DB=postgres`):
 5. Execute the SQL to create the users table and restricted application user.
 6. Execute `server/sql/002_create_sessions.sql` to create the sessions table.
 7. Configure `POSTGRES_URI` in `server/.env` using the connection credentials for `chatroom_app_user`.
+8. Set `AUTH_DB=postgres` in `server/.env`.
 
 The application database user has `SELECT` and `INSERT` permissions on the `users` table, and `SELECT`, `INSERT`, and `DELETE` permissions on the `sessions` table.
 
+MongoDB is still required for rooms and chat history when using PostgreSQL authentication.
+
 Keep database credentials private and never commit your `.env` file.
-
-### MongoDB Setup
-
-Rooms and chat history are stored in MongoDB. After `MONGODB_URI` is set in `server/.env`, create the three chat rooms from the repository root:
-
-```bash
-npm run seed --prefix server
-```
-
-This only needs to run once per database. It is safe to run again: rooms that already exist are left alone.
 
 ### Run
 

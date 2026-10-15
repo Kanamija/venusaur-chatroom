@@ -12,9 +12,8 @@ export async function createUser(
   }
 
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'userModel.createUser: MongoDB user model not implemented yet',
-    });
+    const { createUser } = await import('./mongoUser.js');
+    return createUser(username, passwordHash);
   }
 
   throw new AppError('Internal Server Error', 500, {
@@ -32,9 +31,8 @@ export async function findByUsername(
   }
 
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'userModel.findByUsername: MongoDB user model not implemented yet',
-    });
+    const { findByUsername } = await import('./mongoUser.js');
+    return findByUsername(username);
   }
 
   throw new AppError('Internal Server Error', 500, {
@@ -49,9 +47,8 @@ export async function findById(id: string): Promise<User | null> {
     return findById(id);
   }
   if (process.env.AUTH_DB === 'mongodb') {
-    throw new AppError('Internal Server Error', 500, {
-      log: 'userModel.findById: MongoDB user model not implemented yet',
-    });
+    const { findById } = await import('./mongoUser.js');
+    return findById(id);
   }
   throw new AppError('Internal Server Error', 500, {
     log: 'userModel.findById: Unsupported AUTH_DB',
