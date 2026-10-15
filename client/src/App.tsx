@@ -48,6 +48,17 @@ function App() {
     };
   }, [user]);
 
+  // Log out on the server, then return to the login page.
+  async function handleLogout() {
+    try {
+      await fetch('/api/users/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Error logging out:', err);
+    } finally {
+      setUser(null);
+    }
+  }
+
   if (!sessionChecked) {
     return <main className="min-h-screen bg-black" />;
   }
@@ -57,7 +68,7 @@ function App() {
       {!user ? (
         <AuthPage onAuthSuccess={(userData) => setUser(userData)} />
       ) : (
-        <RoomView user={user} socket={socket} />
+        <RoomView user={user} socket={socket} onLogout={handleLogout} />
       )}
     </main>
   );

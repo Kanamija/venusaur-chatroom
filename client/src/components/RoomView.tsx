@@ -54,9 +54,14 @@ const ROOM_CONFIGS: RoomTheme[] = [
 interface RoomViewProps {
   user?: { username: string } | null;
   socket?: any;
+  onLogout: () => void;
 }
 
-export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
+export const RoomView: React.FC<RoomViewProps> = ({
+  user,
+  socket,
+  onLogout,
+}) => {
   const [currentRoomName, setCurrentRoomName] = useState<string>('Venusaur');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState<string>('');
@@ -184,6 +189,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
         rooms={ROOM_CONFIGS}
         currentRoom={currentRoomName}
         onSelectRoom={handleSelectRoom}
+        onLogout={onLogout}
       />
 
       <ChatRoomLayout
