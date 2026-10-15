@@ -29,6 +29,7 @@ export async function createUser(
   let user;
 
   try {
+    await UserModel.init();
     user = await UserModel.create({
       username,
       passwordHash,
