@@ -20,9 +20,11 @@ When a decision is made, move it from **Open Questions** into **Decided** with i
 
 ### Area Ownership
 
-**Decision:** Eddie owns Supabase and authentication, Kanami owns MongoDB, and Tanisha owns Express and Socket.io. Frontend components go to whoever finishes first.
+**Decision:** Eddie owns Supabase and authentication. Kanami owns MongoDB, the Express routes and middleware, and Socket.io. Tanisha owns the frontend.
 
 **Reason:** Each person goes deep on one technology, and shared frontend work keeps everyone busy.
+
+_Updated October 12, 2026: Tanisha took over the frontend and Kanami took over Express and Socket.io._
 
 ### Public Repository with a Protected `main`
 
@@ -100,7 +102,7 @@ _Added October 10, 2026 by Kanami. To be confirmed by Tanisha._
 
 **Reason:** There are only three fixed rooms, and a name is readable in the database, in URLs, and in socket events without an extra lookup.
 
-**Consequence:** Spelling and capitalization must match exactly everywhere a room is named: the frontend, the Socket.io events, and the history route. A misspelled name is treated as a different, empty room.
+**Consequence:** Spelling and capitalization must match exactly everywhere a room is named: the frontend, the Socket.io events, and the history route. A misspelled name is rejected: the history route returns a 404, and the socket sends an `error` event.
 
 _Added October 10, 2026 by Kanami._
 
@@ -110,7 +112,7 @@ _Added October 10, 2026 by Kanami._
 
 Sent by the browser:
 
-- `join_room`: the room's name as plain text, for example `'Venusaur'`.
+- `join_room`: the room's name as plain text, for example `'Venusaur'`. Joining a room leaves any room the socket was in before.
 - `send_message`: `{ roomId, text }`. `roomId` is a room name. `text` is trimmed and must be 1 to 1000 characters.
 
 Sent by the server:
