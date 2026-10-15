@@ -49,13 +49,14 @@ function App() {
   }, [user]);
 
   // Log out on the server, then return to the login page.
+  // Log out on the server, then return to the login page.
   async function handleLogout() {
     try {
-      await fetch('/api/users/logout', { method: 'POST' });
+      const res = await fetch('/api/users/logout', { method: 'POST' });
+      if (!res.ok) throw new Error(`Logout failed (${res.status})`);
+      setUser(null);
     } catch (err) {
       console.error('Error logging out:', err);
-    } finally {
-      setUser(null);
     }
   }
 
