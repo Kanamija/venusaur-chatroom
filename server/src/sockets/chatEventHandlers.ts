@@ -29,8 +29,7 @@ export function registerChatHandlers(io: Server) {
           return;
         }
 
-        // TODO(Eddie): replace with the logged-in user from the session
-        const user = { userId: 'placeholder', username: 'Guest' };
+        const user = { userId: socket.data.userId, username: socket.data.username };
 
         const savedMessage = await saveMessage({ ...result.data, ...user });
         io.to(savedMessage.roomId).emit('receive_message', savedMessage);
