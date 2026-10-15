@@ -13,7 +13,9 @@ import { verifySocketSession } from './controllers/socketAuthController.js';
 import { registerChatHandlers } from './sockets/chatEventHandlers.js';
 
 const authDb = process.env.AUTH_DB;
-if (authDb !== 'postgres') throw new Error('Invalid AUTH_DB');
+if (authDb !== 'postgres' && authDb !== 'mongodb') {
+  throw new Error('Invalid AUTH_DB');
+}
 
 try {
   if (authDb === 'postgres') await import('./models/postgres.js');
