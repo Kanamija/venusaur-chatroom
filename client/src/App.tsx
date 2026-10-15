@@ -10,7 +10,11 @@ function App() {
   useEffect(() => {
     if (user) {
       // Initialize socket connection upon successful authentication
-      const newSocket = io();
+      // const newSocket = io();
+      const newSocket = io({
+        withCredentials: true,
+      });
+      
       setSocket(newSocket);
 
       return () => {

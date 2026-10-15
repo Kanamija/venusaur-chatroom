@@ -24,7 +24,6 @@ const COMPLEMENTARY_BUBBLE_STYLES: Record<
   },
 };
 
-// Define all 3 rooms with their complementary accent bases
 const ROOM_CONFIGS: RoomTheme[] = [
   {
     name: 'Venusaur',
@@ -74,18 +73,19 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     scrollToBottom();
   }, [messages]);
 
-  // 1. Fetch recent messages (up to 50) via REST API when entering or switching rooms
+  // 1. Fetch recent message history (up to 50) when entering or switching rooms
   useEffect(() => {
     if (!currentRoomName) return;
 
+    setMessages([]);
+
     fetch(`/api/messages/${currentRoomName}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch room message history');
+        if (!res.ok) throw new Error('Failed to fetch room history');
         return res.json();
       })
       .then((data) => {
         if (Array.isArray(data)) {
-          // Take the most recent 50 messages matching Kanami's schema
           const recent50 = data.slice(-50);
           const formattedHistory: Message[] = recent50.map((msg: any) => ({
             roomId: msg.roomId || currentRoomName,
@@ -101,15 +101,14 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
       });
   }, [currentRoomName]);
 
-  // 2. Handle room joining and real-time socket message subscription
+  // 2. Handle room joining and strict real-time socket filtering
   useEffect(() => {
     if (!socket) return;
 
-    // Join room
     socket.emit('join_room', currentRoomName);
 
-    // Listen for new incoming real-time messages
     const handleReceiveMessage = (incomingData: any) => {
+      // STRICT FILTER: Only display the message if its roomId matches the active room
       if (incomingData.roomId === currentRoomName) {
         const mappedMessage: Message = {
           roomId: incomingData.roomId,
@@ -117,7 +116,21 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
           username: incomingData.username || 'Trainer',
           createdAt: incomingData.createdAt || new Date().toISOString(),
         };
-        setMessages((prev) => [...prev, mappedMessage]);
+
+        setMessages((prev) => {
+          // Prevent duplicates
+          if (
+            prev.some(
+              (m) =>
+                m.createdAt === mappedMessage.createdAt &&
+                m.text === mappedMessage.text &&
+                m.username === mappedMessage.username,
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, mappedMessage];
+        });
       }
     };
 
@@ -139,14 +152,12 @@ export const RoomView: React.FC<RoomViewProps> = ({ user, socket }) => {
     const currentUsername = user?.username || 'Trainer';
 
     if (socket) {
-      // Send using 'text' property to align with Kanami's mongoMessage schema
       socket.emit('send_message', {
         roomId: currentRoomName,
         text: inputText,
         username: currentUsername,
       });
     } else {
-      // Local optimistic fallback if socket isn't connected yet
       const newMessage: Message = {
         roomId: currentRoomName,
         text: inputText,

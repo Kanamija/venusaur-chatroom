@@ -5,7 +5,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import { connectToDatabase } from './db/connect.js';
-
+import { getRecentMessages } from './models/mongoMessage.js';
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
 import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
@@ -56,6 +56,17 @@ app.use('/api/users', userRoutes);
 
 // Room Routes
 app.use('/api/rooms', roomRoutes);
+
+// Messages Endpoint (Fetch last 50 messages for history persistence)
+app.get('/api/messages/:roomId', async (req, res, next) => {
+  try {
+    const { roomId } = req.params;
+    const messages = await getRecentMessages(roomId, 50);
+    res.json(messages);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Global Express error handler
 app.use(globalErrorHandler);
