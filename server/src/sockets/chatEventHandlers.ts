@@ -41,6 +41,7 @@ export function registerChatHandlers(io: Server) {
         socket.emit('error', { message: 'Failed to send message' });
       }
     });
+
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
     });

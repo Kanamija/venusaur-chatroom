@@ -114,14 +114,13 @@ export const RoomView: React.FC<RoomViewProps> = ({
     };
   }, [currentRoomName]);
 
-  // 2. Handle room joining and live socket message updates with strict room filtering
+  // 2. Handle room joining and live socket message updates / deletion
   useEffect(() => {
     if (!socket) return;
 
     socket.emit('join_room', currentRoomName);
 
     const handleReceiveMessage = (incomingData: any) => {
-      // STRICT FILTER: Only process messages belonging to the currently active room
       if (incomingData.roomId === currentRoomName) {
         const mappedMessage: Message = {
           _id: incomingData._id,
@@ -132,7 +131,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
         };
 
         setMessages((prevMessages) => {
-          // Prevent duplicates by checking _id or unique content combination
           const exists = prevMessages.some(
             (msg) =>
               (msg._id && msg._id === mappedMessage._id) ||
@@ -147,10 +145,24 @@ export const RoomView: React.FC<RoomViewProps> = ({
       }
     };
 
+    // Real-time deletion handler across socket connection
+    const handleMessageDeleted = (deletedData: {
+      messageId: string;
+      roomId: string;
+    }) => {
+      if (deletedData.roomId === currentRoomName) {
+        setMessages((prevMessages) =>
+          prevMessages.filter((msg) => msg._id !== deletedData.messageId),
+        );
+      }
+    };
+
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('message_deleted', handleMessageDeleted);
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('message_deleted', handleMessageDeleted);
     };
   }, [currentRoomName, socket]);
 
@@ -161,8 +173,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const handleSubmitMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
-
-    // Not connected yet: keep the draft so the user can send it once connected.
     if (!socket) return;
 
     const currentUsername = user?.username || 'Trainer';
@@ -174,6 +184,26 @@ export const RoomView: React.FC<RoomViewProps> = ({
     });
 
     setInputText('');
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/messages/${messageId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to delete message from server');
+      }
+
+      // Optimistically remove from local state
+      setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+
+      // ❌ REMOVE: socket.emit('delete_message', ...) is no longer needed here!
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    }
   };
 
   return (
@@ -204,6 +234,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
               key={msg._id || msg.createdAt || index}
               message={msg}
               accentColorClass={dynamicBubbleColor}
+              currentUserUsername={user?.username}
+              onDeleteMessage={handleDeleteMessage}
             />
           );
         })}

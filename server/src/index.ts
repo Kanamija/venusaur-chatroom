@@ -6,7 +6,7 @@ import path from 'node:path';
 import { Server } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import { connectToDatabase } from './db/connect.js';
-
+import messageRoutes from './routes/messageRoutes.js';
 import { globalErrorHandler } from './errors/globalErrorHandler.js';
 import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
@@ -42,6 +42,9 @@ const io = new Server(httpServer, {
   },
 });
 
+// Attach io to express app so routes can access it
+app.set('io', io);
+
 const PORT = Number(process.env.PORT) || 3000;
 
 // Built frontend files from Vite
@@ -67,6 +70,9 @@ app.use('/api/users', userRoutes);
 
 // Room Routes
 app.use('/api/rooms', roomRoutes);
+
+// Message Routes
+app.use('/api/messages', messageRoutes);
 
 // Serve the built frontend
 app.use(express.static(clientDistPath));
