@@ -25,11 +25,12 @@ const mockRooms: RoomTheme[] = [
         const handleSelectRoom = vi.fn();
 
         render(
-        <RoomHeader
-            rooms={mockRooms}
-            currentRoom="Venusaur"
-            onSelectRoom={handleSelectRoom}
-        />,
+            <RoomHeader
+                rooms={mockRooms}
+                currentRoom="Venusaur"
+                onSelectRoom={handleSelectRoom}
+                onLogout={vi.fn()}
+            />,
         );
 
         // Use a custom function matcher to handle multiline formatted button text

@@ -29,7 +29,13 @@ describe('RoomView Component', () => {
         };
 
         await act(async () => {
-        render(<RoomView user={{ username: 'TestAsh' }} socket={mockSocket} />);
+            render(
+                <RoomView
+                user={{ username: 'TestAsh' }}
+                socket={mockSocket}
+                onLogout={vi.fn()}
+                />,
+            );
         });
 
         // Verify room heading renders and socket joins room
