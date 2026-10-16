@@ -51,4 +51,28 @@ async function getRecentMessages(roomId: string, limit = 50) {
   return newestFirst.reverse();
 }
 
-export { Message, saveMessage, getRecentMessages };
+/**
+ * Deletes a message by ID after verifying that the requesting user's ID owns it.
+ */
+async function deleteMessageById(messageId: string, userId: string) {
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    const error: any = new Error('Message not found');
+    error.status = 404;
+    throw error;
+  }
+
+  // Security check: ensure requesting userId owns the message
+  if (message.userId !== userId) {
+    const error: any = new Error('Forbidden: You can only delete your own messages');
+    error.status = 403;
+    throw error;
+  }
+
+  await Message.findByIdAndDelete(messageId);
+  return { roomId: message.roomId, messageId };
+}
+
+export { Message, saveMessage, getRecentMessages, deleteMessageById };
+
