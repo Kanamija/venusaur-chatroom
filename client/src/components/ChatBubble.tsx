@@ -39,7 +39,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
           {isOwnMessage && message._id && (
             <button
               onClick={handleDelete}
-              className="text-black/60 hover:text-red-600 transition-colors p-0.5 rounded focus:outline-none"
+              className="text-black/60 hover:text-red-600 transition-colors p-0.5 rounded focus-visible:ring-2 focus-visible:ring-black"
               title="Delete Message"
               type="button"
             >

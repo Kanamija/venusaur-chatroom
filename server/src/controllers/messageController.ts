@@ -9,6 +9,12 @@ export const deleteMessage: RequestHandler<{ id: string }> = async (
     ) => {
     try {
         const messageId = req.params.id;
+
+        // Validate MongoDB ObjectId format (24 hex characters)
+        if (!/^[0-9a-fA-F]{24}$/.test(messageId)) {
+        return next(new AppError('Invalid message ID', 400));
+        }
+
         const userId = res.locals.userId;
 
         if (!userId) {
@@ -16,6 +22,15 @@ export const deleteMessage: RequestHandler<{ id: string }> = async (
         }
 
         const result = await deleteMessageById(messageId, userId);
+
+        const io = req.app.get('io');
+        if (io) {
+        io.to(result.roomId).emit('message_deleted', {
+            messageId: result.messageId,
+            roomId: result.roomId,
+        });
+        }
+
         res.locals.deletedMessage = result;
         return next();
     } catch (err: any) {

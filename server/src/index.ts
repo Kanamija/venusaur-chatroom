@@ -42,6 +42,9 @@ const io = new Server(httpServer, {
   },
 });
 
+// Attach io to express app so routes can access it
+app.set('io', io);
+
 const PORT = Number(process.env.PORT) || 3000;
 
 // Built frontend files from Vite

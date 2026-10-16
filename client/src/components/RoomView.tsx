@@ -190,6 +190,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
     try {
       const res = await fetch(`/api/messages/${messageId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (!res.ok) {
@@ -199,13 +200,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
       // Optimistically remove from local state
       setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
 
-      // Emit socket event so other clients in the room remove it immediately
-      if (socket) {
-        socket.emit('delete_message', {
-          messageId,
-          roomId: currentRoomName,
-        });
-      }
+      // ❌ REMOVE: socket.emit('delete_message', ...) is no longer needed here!
     } catch (err) {
       console.error('Error deleting message:', err);
     }

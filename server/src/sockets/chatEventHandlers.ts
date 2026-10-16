@@ -1,6 +1,6 @@
 import type { Server } from 'socket.io';
 import { roomNameSchema, sendMessageSchema } from '../schemas/messageSchema.js';
-import { saveMessage, deleteMessageById } from '../models/mongoMessage.js';
+import { saveMessage } from '../models/mongoMessage.js';
 
 export function registerChatHandlers(io: Server) {
   io.on('connect', (socket) => {
@@ -41,18 +41,6 @@ export function registerChatHandlers(io: Server) {
         socket.emit('error', { message: 'Failed to send message' });
       }
     });
-
-    // Real-time deletion listener
-    socket.on(
-      'delete_message',
-      (data: { messageId: string; roomId: string }) => {
-        if (!data?.messageId || !data?.roomId) return;
-        io.to(data.roomId).emit('message_deleted', {
-          messageId: data.messageId,
-          roomId: data.roomId,
-        });
-      },
-    );
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
