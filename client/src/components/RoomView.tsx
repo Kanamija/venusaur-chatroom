@@ -22,6 +22,10 @@ const COMPLEMENTARY_BUBBLE_STYLES: Record<
     primary: 'bg-yellow-300 border-yellow-400',
     secondary: 'bg-purple-200 border-purple-300',
   },
+  Mewtwo: {
+    primary: 'bg-fuchsia-200 border-fuchsia-300',
+    secondary: 'bg-violet-100 border-violet-200',
+  },
 };
 
 const ROOM_CONFIGS: RoomTheme[] = [
@@ -48,6 +52,16 @@ const ROOM_CONFIGS: RoomTheme[] = [
     spriteUrl:
       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png',
     isAvailable: true,
+  },
+  {
+    name: 'Mewtwo',
+    bgGradient: 'from-violet-950 via-purple-900 to-slate-950',
+    accentColor: 'bg-fuchsia-200 border-fuchsia-300',
+    spriteUrl:
+      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png',
+    isAvailable: true,
+    bgImageUrl: '/rooms/mewtwo-cave.jpg',
+    effect: 'psychic',
   },
 ];
 
@@ -207,7 +221,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
+    <div className="flex flex-col h-screen h-dvh bg-black">
       <RoomHeader
         rooms={ROOM_CONFIGS}
         currentRoom={currentRoomName}

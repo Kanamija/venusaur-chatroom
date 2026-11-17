@@ -2,8 +2,9 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import { connectToDatabase } from '../db/connect.js';
 import { Room } from '../models/mongoRoom.js';
+import { ROOM_NAMES } from '../constants/rooms.js';
 
-const roomNames = ['Venusaur', 'Charizard', 'Pikachu'];
+const roomNames = ROOM_NAMES;
 
 async function seedRooms() {
   await connectToDatabase();
