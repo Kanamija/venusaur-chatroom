@@ -8,6 +8,8 @@ interface ChatRoomLayoutProps {
   onInputChange: (val: string) => void;
   onSubmitMessage: (e: React.FormEvent) => void;
   children: React.ReactNode;
+  isLocked?: boolean; // Premium room the user hasn't unlocked
+  lockedContent?: React.ReactNode; // Shown in the message area while locked
 }
 
 export const ChatRoomLayout: React.FC<ChatRoomLayoutProps> = ({
@@ -16,6 +18,8 @@ export const ChatRoomLayout: React.FC<ChatRoomLayoutProps> = ({
   onInputChange,
   onSubmitMessage,
   children,
+  isLocked = false,
+  lockedContent,
 }) => {
   return (
     <div
@@ -32,7 +36,13 @@ export const ChatRoomLayout: React.FC<ChatRoomLayoutProps> = ({
           The {theme.name} Room
         </h1>
 
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4">{children}</div>
+        {isLocked ? (
+          <div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
+            {lockedContent}
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto pr-2 space-y-4">{children}</div>
+        )}
 
         {/* Bottom Input Form */}
         <form onSubmit={onSubmitMessage} className="mt-4 flex gap-2 min-w-0">
@@ -41,12 +51,18 @@ export const ChatRoomLayout: React.FC<ChatRoomLayoutProps> = ({
             value={inputText}
             onChange={(e) => onInputChange(e.target.value)}
             aria-label={`Message The ${theme.name} Room`} // Added accessible label
-            placeholder={`Message The ${theme.name} Room...`}
-            className="flex-1 min-w-0 bg-black/40 border border-white/20 text-white placeholder-gray-400 rounded-lg px-4 py-3 focus:outline-none focus:border-white font-mono text-sm"
+            placeholder={
+              isLocked
+                ? `Unlock The ${theme.name} Room to chat`
+                : `Message The ${theme.name} Room...`
+            }
+            disabled={isLocked}
+            className="flex-1 min-w-0 bg-black/40 border border-white/20 text-white placeholder-gray-400 rounded-lg px-4 py-3 focus:outline-none focus:border-white font-mono text-sm disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             type="submit"
-            className="bg-emerald-400 hover:bg-emerald-300 text-black font-semibold px-4 sm:px-6 py-3 rounded-lg transition-colors font-mono text-sm"
+            disabled={isLocked}
+            className="bg-emerald-400 hover:bg-emerald-300 text-black font-semibold px-4 sm:px-6 py-3 rounded-lg transition-colors font-mono text-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-emerald-400"
           >
             Send
           </button>

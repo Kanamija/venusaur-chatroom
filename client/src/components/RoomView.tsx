@@ -4,6 +4,7 @@ import type { RoomTheme } from '../types/theme';
 import { ChatBubble } from './ChatBubble';
 import { ChatRoomLayout } from './ChatRoomLayout';
 import { RoomHeader } from './RoomHeader';
+import { PremiumLockOverlay } from './PremiumLockOverlay';
 
 // Complementary bubble color options per room theme
 const COMPLEMENTARY_BUBBLE_STYLES: Record<
@@ -62,8 +63,42 @@ const ROOM_CONFIGS: RoomTheme[] = [
     isAvailable: true,
     bgImageUrl: '/rooms/mewtwo-cave.jpg',
     effect: 'psychic',
+    isPremium: true,
+    premiumPriceLabel: 'CA$3',
   },
 ];
+
+const PREMIUM_ROOM_NAMES = ROOM_CONFIGS.filter((r) => r.isPremium).map(
+  (r) => r.name,
+);
+
+type Notice = {
+  kind: 'success' | 'info' | 'error';
+  text: string;
+  sticky?: boolean;
+} | null;
+
+// Ask the server whether the logged-in user has unlocked a premium room.
+async function fetchRoomAccess(roomName: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/rooms/${roomName}/access`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.hasAccess === true;
+  } catch {
+    return false;
+  }
+}
+
+// Read ?checkout=success|cancelled&room=... once, when returning from Stripe.
+function readCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search);
+  return { status: params.get('checkout'), room: params.get('room') };
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface RoomViewProps {
   user?: { username: string } | null;
@@ -81,8 +116,89 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const [inputText, setInputText] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Premium access per room: true = unlocked, false = locked, missing = still checking.
+  const [premiumAccess, setPremiumAccess] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  // Captured once on first render so React StrictMode's double effects don't lose it.
+  const [checkoutReturn] = useState(readCheckoutReturn);
+
   const activeTheme =
     ROOM_CONFIGS.find((r) => r.name === currentRoomName) || ROOM_CONFIGS[0];
+  const accessKnown = activeTheme.name in premiumAccess;
+  const isLocked =
+    !!activeTheme.isPremium && premiumAccess[activeTheme.name] !== true;
+  const lockedRooms = PREMIUM_ROOM_NAMES.filter(
+    (name) => premiumAccess[name] === false,
+  );
+
+  // Check premium access on load, and handle the return trip from Stripe Checkout.
+  useEffect(() => {
+    let cancelled = false;
+    const { status, room } = checkoutReturn;
+    if (status) window.history.replaceState(null, '', window.location.pathname);
+
+    async function loadAccess() {
+      const results = await Promise.all(
+        PREMIUM_ROOM_NAMES.map(
+          async (name) => [name, await fetchRoomAccess(name)] as const,
+        ),
+      );
+      if (cancelled) return;
+      setPremiumAccess(Object.fromEntries(results));
+
+      if (status === 'cancelled') {
+        setNotice({ kind: 'info', text: 'Checkout cancelled. You were not charged.' });
+        return;
+      }
+      if (status !== 'success' || !room || !PREMIUM_ROOM_NAMES.includes(room)) {
+        return;
+      }
+
+      // Stripe's webhook can land a moment after the redirect, so poll briefly.
+      setCurrentRoomName(room);
+      setNotice({ kind: 'info', text: 'Payment received. Unlocking…', sticky: true });
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (await fetchRoomAccess(room)) {
+          if (cancelled) return;
+          setPremiumAccess((prev) => ({ ...prev, [room]: true }));
+          setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+          return;
+        }
+        await wait(1500);
+        if (cancelled) return;
+      }
+      setNotice({
+        kind: 'error',
+        text: 'Payment received, but the unlock is still processing. Refresh in a moment.',
+        sticky: true,
+      });
+    }
+
+    loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutReturn]);
+
+  // Auto-dismiss non-sticky notices.
+  useEffect(() => {
+    if (!notice || notice.sticky) return;
+    const timer = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // If the user comes back from Stripe with the browser's Back button, re-enable Unlock.
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setIsRedirecting(false);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -96,6 +212,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   useEffect(() => {
     let ignore = false;
     setMessages([]); // Clear old room messages immediately so they don't bleed over
+    if (isLocked) return; // Premium room not unlocked yet: nothing to load
 
     fetch(`/api/rooms/${currentRoomName}/messages`)
       .then((res) => {
@@ -126,13 +243,14 @@ export const RoomView: React.FC<RoomViewProps> = ({
     return () => {
       ignore = true; // Cleanup flag when room changes
     };
-  }, [currentRoomName]);
+  }, [currentRoomName, isLocked]);
 
   // 2. Handle room joining and live socket message updates / deletion
   useEffect(() => {
     if (!socket) return;
 
-    socket.emit('join_room', currentRoomName);
+    // The server refuses premium rooms until they're unlocked, so don't ask yet.
+    if (!isLocked) socket.emit('join_room', currentRoomName);
 
     const handleReceiveMessage = (incomingData: any) => {
       if (incomingData.roomId === currentRoomName) {
@@ -178,16 +296,47 @@ export const RoomView: React.FC<RoomViewProps> = ({
       socket.off('receive_message', handleReceiveMessage);
       socket.off('message_deleted', handleMessageDeleted);
     };
-  }, [currentRoomName, socket]);
+  }, [currentRoomName, socket, isLocked]);
 
   const handleSelectRoom = (roomName: string) => {
     setCurrentRoomName(roomName);
+    setUnlockError(null);
+  };
+
+  // Start Stripe Checkout for the current premium room.
+  const handleUnlock = async () => {
+    setUnlockError(null);
+    setIsRedirecting(true);
+    try {
+      const res = await fetch(`/api/rooms/${currentRoomName}/checkout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Already unlocked (e.g. paid in another tab).
+      if (res.status === 409) {
+        setPremiumAccess((prev) => ({ ...prev, [currentRoomName]: true }));
+        setIsRedirecting(false);
+        return;
+      }
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.message || `Checkout failed (${res.status})`);
+      }
+      window.location.assign(data.url);
+    } catch (err) {
+      console.error('Error starting checkout:', err);
+      setUnlockError('Could not open checkout. Please try again.');
+      setIsRedirecting(false);
+    }
   };
 
   const handleSubmitMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
     if (!socket) return;
+    if (isLocked) return;
 
     const currentUsername = user?.username || 'Trainer';
 
@@ -227,13 +376,48 @@ export const RoomView: React.FC<RoomViewProps> = ({
         currentRoom={currentRoomName}
         onSelectRoom={handleSelectRoom}
         onLogout={onLogout}
+        lockedRooms={lockedRooms}
       />
+
+      {notice && (
+        <div
+          role="status"
+          className={`fixed top-20 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl border px-4 py-3 font-mono text-sm shadow-lg backdrop-blur-md ${
+            notice.kind === 'success'
+              ? 'border-fuchsia-300/50 bg-fuchsia-950/80 text-fuchsia-100'
+              : notice.kind === 'error'
+                ? 'border-rose-300/50 bg-rose-950/80 text-rose-100'
+                : 'border-white/20 bg-black/80 text-gray-100'
+          }`}
+        >
+          <span className="flex-1">{notice.text}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss"
+            className="text-gray-300 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <ChatRoomLayout
         theme={activeTheme}
         inputText={inputText}
         onInputChange={setInputText}
         onSubmitMessage={handleSubmitMessage}
+        isLocked={isLocked}
+        lockedContent={
+          <PremiumLockOverlay
+            roomName={activeTheme.name}
+            priceLabel={activeTheme.premiumPriceLabel}
+            isChecking={!accessKnown}
+            isRedirecting={isRedirecting}
+            error={unlockError}
+            onUnlock={handleUnlock}
+          />
+        }
       >
         {messages.map((msg, index) => {
           const roomStyles =

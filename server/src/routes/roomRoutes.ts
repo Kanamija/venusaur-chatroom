@@ -1,13 +1,44 @@
 import { Router } from 'express';
 import { getRoomMessages } from '../controllers/roomController.js';
+import { verifySession } from '../controllers/sessionController.js';
+import {
+  createCheckoutSession,
+  getRoomAccess,
+  requirePremiumRoomAccess,
+} from '../controllers/roomAccessController.js';
 
 const router = Router();
 
-router.get('/:id/messages', getRoomMessages, (_req, res) => {
+// Free rooms stay public; premium rooms require a session and a paid unlock.
+router.get(
+  '/:id/messages',
+  requirePremiumRoomAccess,
+  getRoomMessages,
+  (_req, res) => {
+    res.status(200).json({
+      success: true,
+      messages: res.locals.messages,
+    });
+  },
+);
+
+router.get('/:id/access', verifySession, getRoomAccess, (_req, res) => {
   res.status(200).json({
     success: true,
-    messages: res.locals.messages,
+    ...res.locals.roomAccess,
   });
 });
+
+router.post(
+  '/:id/checkout',
+  verifySession,
+  createCheckoutSession,
+  (_req, res) => {
+    res.status(200).json({
+      success: true,
+      url: res.locals.checkoutUrl,
+    });
+  },
+);
 
 export default router;

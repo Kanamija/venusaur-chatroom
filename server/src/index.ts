@@ -12,6 +12,7 @@ import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import { verifySocketSession } from './controllers/socketAuthController.js';
 import { registerChatHandlers } from './sockets/chatEventHandlers.js';
+import { handleStripeWebhook } from './controllers/stripeWebhookController.js';
 
 const authDb = process.env.AUTH_DB;
 if (authDb !== 'postgres' && authDb !== 'mongodb') {
@@ -49,6 +50,14 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Built frontend files from Vite
 const clientDistPath = path.join(import.meta.dirname, '../../client/dist');
+
+// Stripe webhook needs the raw request body to verify its signature,
+// so it is registered before express.json() parses bodies.
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook,
+);
 
 // Middleware
 app.use(express.json());
