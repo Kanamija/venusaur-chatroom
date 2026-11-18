@@ -31,10 +31,4 @@ export async function markEventProcessed(
   }
 }
 
-// unmarkEventProcessed() — Undo the record if processing failed,
-// so Stripe's automatic retry can try again.
-export async function unmarkEventProcessed(eventId: string): Promise<void> {
-  await ProcessedStripeEvent.deleteOne({ eventId });
-}
-
 export { ProcessedStripeEvent };

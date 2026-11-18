@@ -38,9 +38,6 @@ function makeDeps(
       processed.add(eventId);
       return true;
     },
-    unmarkEventProcessed: async (eventId) => {
-      processed.delete(eventId);
-    },
     grantRoomAccess: async (userId, roomName, sessionId) => {
       const key = `${userId}:${roomName}`;
       if (!access.has(key)) access.set(key, sessionId);
@@ -79,21 +76,15 @@ describe('Stripe webhook handler', () => {
   });
 
   it('processes a duplicate delivery only once', async () => {
-    let grants = 0;
-    const { deps } = makeDeps(makeEvent());
-    const counting = {
-      ...deps,
-      grantRoomAccess: async (u: string, r: string, s: string) => {
-        grants += 1;
-        await deps.grantRoomAccess(u, r, s);
-      },
-    };
-    const first = await callHandler(counting);
-    const second = await callHandler(counting);
+    const { deps, access } = makeDeps(makeEvent());
+    const first = await callHandler(deps);
+    const second = await callHandler(deps);
     assert.equal(first.status, 200);
     assert.equal(second.status, 200);
     assert.deepEqual(second.body, { received: true, duplicate: true });
-    assert.equal(grants, 1);
+    // Exactly one persisted entitlement, still tied to the original session.
+    assert.equal(access.size, 1);
+    assert.equal(access.get('user_1:Mewtwo'), 'cs_test_1');
   });
 
   it('rejects a bad signature with 400', async () => {
@@ -129,7 +120,7 @@ describe('Stripe webhook handler', () => {
     assert.equal(other.access.size, 0);
   });
 
-  it('un-records the event when granting access fails so Stripe can retry', async () => {
+  it('does not mark the event processed when granting access fails, so Stripe retries', async () => {
     const { deps, processed } = makeDeps(makeEvent(), {
       grantRoomAccess: async () => {
         throw new Error('db down');
@@ -138,5 +129,26 @@ describe('Stripe webhook handler', () => {
     const res = await callHandler(deps);
     assert.equal(res.status, 500);
     assert.equal(processed.has('evt_test_1'), false);
+  });
+
+  it('unlocks the room on retry after recording the event failed', async () => {
+    const { deps, access } = makeDeps(makeEvent());
+    let failOnce = true;
+    const flaky: StripeWebhookDeps = {
+      ...deps,
+      markEventProcessed: async (id, type) => {
+        if (failOnce) {
+          failOnce = false;
+          throw new Error('db blip');
+        }
+        return deps.markEventProcessed(id, type);
+      },
+    };
+    const first = await callHandler(flaky);
+    assert.equal(first.status, 500);
+    const retry = await callHandler(flaky);
+    assert.equal(retry.status, 200);
+    assert.notDeepEqual(retry.body, { received: true, duplicate: true });
+    assert.equal(access.size, 1);
   });
 });

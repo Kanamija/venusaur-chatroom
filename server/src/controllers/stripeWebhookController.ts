@@ -2,10 +2,7 @@ import type { RequestHandler } from 'express';
 import type Stripe from 'stripe';
 import { isPremiumRoom } from '../constants/rooms.js';
 import { grantRoomAccess } from '../models/mongoRoomAccess.js';
-import {
-  markEventProcessed,
-  unmarkEventProcessed,
-} from '../models/mongoProcessedStripeEvent.js';
+import { markEventProcessed } from '../models/mongoProcessedStripeEvent.js';
 import { getStripe } from '../stripe/stripeClient.js';
 
 export interface StripeWebhookDeps {
@@ -16,7 +13,6 @@ export interface StripeWebhookDeps {
     secret: string,
   ) => Stripe.Event;
   markEventProcessed: (eventId: string, type: string) => Promise<boolean>;
-  unmarkEventProcessed: (eventId: string) => Promise<void>;
   grantRoomAccess: (
     userId: string,
     roomName: string,
@@ -83,23 +79,27 @@ export function createStripeWebhookHandler(
       return;
     }
 
-    // Record the event first. A duplicate delivery stops here.
-    const isFirstDelivery = await deps.markEventProcessed(event.id, event.type);
-    if (!isFirstDelivery) {
-      console.log(`stripeWebhook: ${event.id} already processed; skipping`);
-      res.status(200).json({ received: true, duplicate: true });
-      return;
-    }
-
+    // 1. Grant access first. This is an idempotent upsert keyed on
+    //    { userId, roomName }, so running it again on a retry or a duplicate
+    //    delivery never creates a second entitlement.
+    // 2. Only then record the event as processed. If the server crashes or
+    //    either write fails, we return 500 and Stripe retries, so a paid
+    //    room can never be left locked.
+    let isFirstDelivery: boolean;
     try {
       await deps.grantRoomAccess(userId, roomName, session.id);
+      isFirstDelivery = await deps.markEventProcessed(event.id, event.type);
     } catch (err) {
-      // Un-record the event and return 500 so Stripe retries it later.
-      await deps.unmarkEventProcessed(event.id).catch(() => {});
-      console.error('stripeWebhook: Failed to grant room access:', err);
+      console.error('stripeWebhook: Failed to process event:', err);
       res
         .status(500)
         .json({ success: false, message: 'Failed to process event' });
+      return;
+    }
+
+    if (!isFirstDelivery) {
+      console.log(`stripeWebhook: ${event.id} already processed; skipping`);
+      res.status(200).json({ received: true, duplicate: true });
       return;
     }
 
@@ -113,6 +113,5 @@ export const handleStripeWebhook = createStripeWebhookHandler({
   constructEvent: (payload, signature, secret) =>
     getStripe().webhooks.constructEvent(payload, signature, secret),
   markEventProcessed,
-  unmarkEventProcessed,
   grantRoomAccess,
 });
