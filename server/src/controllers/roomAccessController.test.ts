@@ -23,8 +23,10 @@ function makeDeps(overrides: Partial<CheckoutDeps> = {}) {
   const sessions = new Map<string, Stripe.Checkout.Session>();
   const byKey = new Map<string, Promise<Stripe.Checkout.Session>>();
   const createCalls: string[] = []; // idempotency keys
+  const createParams: Stripe.Checkout.SessionCreateParams[] = [];
   let stripeDelayMs = 5; // Slow enough for a second request to sneak in
   let nextId = 0;
+  let clockOffsetMs = 0;
   const slot = (u: string, r: string) => `${u}:${r}`;
   const tick = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -36,6 +38,7 @@ function makeDeps(overrides: Partial<CheckoutDeps> = {}) {
       const rec = pending.get(slot(u, r));
       return rec ? { ...rec } : null;
     },
+    hasRoomAccess: async (u, r) => access.has(slot(u, r)),
     claimPendingCheckout: async (u, r, idempotencyKey, expiresAt) => {
       if (pending.has(slot(u, r))) return false; // E11000
       pending.set(slot(u, r), { idempotencyKey, expiresAt });
@@ -51,6 +54,7 @@ function makeDeps(overrides: Partial<CheckoutDeps> = {}) {
     },
     createStripeSession: (params, key) => {
       createCalls.push(key);
+      createParams.push(params);
       if (!byKey.has(key)) {
         byKey.set(
           key,
@@ -61,7 +65,8 @@ function makeDeps(overrides: Partial<CheckoutDeps> = {}) {
               status: 'open',
               payment_status: 'unpaid',
               url: `https://checkout.stripe.com/c/${id}`,
-              expires_at: params.expires_at,
+              // Stripe's default: 24 hours after creation.
+              expires_at: Math.floor(deps.now() / 1000) + 24 * 60 * 60,
               metadata: params.metadata,
               allowed_payment_method_types: params.allowed_payment_method_types,
             } as unknown as Stripe.Checkout.Session;
@@ -74,27 +79,60 @@ function makeDeps(overrides: Partial<CheckoutDeps> = {}) {
     },
     retrieveStripeSession: async (id) => sessions.get(id)!,
     newIdempotencyKey: () => `checkout:${Math.random()}`,
-    now: () => Date.now(),
+    now: () => Date.now() + clockOffsetMs,
     sleep: tick,
     ...overrides,
   };
   const setStripeDelay = (ms: number) => {
     stripeDelayMs = ms;
   };
-  return { deps, pending, access, sessions, createCalls, setStripeDelay };
+  const advanceClock = (ms: number) => {
+    clockOffsetMs += ms;
+  };
+  return {
+    deps,
+    pending,
+    access,
+    sessions,
+    createCalls,
+    createParams,
+    setStripeDelay,
+    advanceClock,
+  };
 }
 
 describe('startOrReuseCheckout', () => {
-  it('creates one card-only session with a 30+ minute expiry and stores its key', async () => {
-    const { deps, pending, sessions } = makeDeps();
+  it("creates one card-only session with Stripe's default expiry and stores its key", async () => {
+    const { deps, pending, sessions, createParams } = makeDeps();
 
     const out = await startOrReuseCheckout(deps, ARGS);
 
     assert.deepEqual(out, { url: 'https://checkout.stripe.com/c/cs_test_1' });
     const session = sessions.get('cs_test_1')!;
     assert.deepEqual(session.allowed_payment_method_types, ['card']);
-    assert.ok(session.expires_at * 1000 - Date.now() >= 30 * 60 * 1000);
+    assert.equal(createParams[0].expires_at, undefined);
+    // The slot outlives the session it holds.
+    assert.ok(
+      pending.get(SLOT)!.expiresAt.getTime() / 1000 > session.expires_at,
+    );
     assert.equal(pending.get(SLOT)?.stripeSessionId, 'cs_test_1');
+  });
+
+  it('does not sell the room again if the webhook unlocks it between the access check and the claim', async () => {
+    const { deps, access, pending, createCalls } = makeDeps();
+    // The caller already checked access (none). Before our claim, the webhook
+    // grants access and deletes its old slot, so we find no slot here.
+    const find = deps.findPendingCheckout;
+    deps.findPendingCheckout = async (u, r) => {
+      access.set(SLOT, 'cs_paid_elsewhere');
+      return find(u, r);
+    };
+
+    const out = await startOrReuseCheckout(deps, ARGS);
+
+    assert.deepEqual(out, { hasAccess: true });
+    assert.equal(createCalls.length, 0); // No new payable session
+    assert.equal(pending.size, 0); // Our claim was freed
   });
 
   it('reuses the open session on a second click instead of creating another', async () => {
@@ -149,6 +187,26 @@ describe('startOrReuseCheckout', () => {
 
     assert.deepEqual(out, { url: 'https://checkout.stripe.com/c/cs_test_1' });
     assert.equal(createCalls[0], createCalls[1]);
+    assert.equal(sessions.size, 1);
+  });
+
+  it('retries hours later with the same key and identical parameters', async () => {
+    const { deps, sessions, createCalls, createParams, advanceClock } =
+      makeDeps();
+    const save = deps.savePendingCheckoutSession;
+    deps.savePendingCheckoutSession = async () => {
+      throw new Error('db down');
+    };
+    await assert.rejects(startOrReuseCheckout(deps, ARGS), /db down/);
+
+    // A long outage: the retry comes 2 hours later.
+    advanceClock(2 * 60 * 60 * 1000);
+    deps.savePendingCheckoutSession = save;
+    const out = await startOrReuseCheckout(deps, ARGS);
+
+    assert.deepEqual(out, { url: 'https://checkout.stripe.com/c/cs_test_1' });
+    assert.equal(createCalls[0], createCalls[1]);
+    assert.deepEqual(createParams[1], createParams[0]);
     assert.equal(sessions.size, 1);
   });
 

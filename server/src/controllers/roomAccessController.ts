@@ -78,7 +78,8 @@ export const getRoomAccess: RequestHandler<{ id: string }> = async (
 // before the webhook lands) could each create a session and charge twice.
 // The flow for every Unlock click:
 //   1. Nothing on record -> claim the slot with an atomic insert that also
-//      stores a fresh idempotency key. Only one request can win.
+//      stores a fresh idempotency key. Only one request can win. Then check
+//      access once more, in case the webhook unlocked the room meanwhile.
 //   2. Get the session for that slot:
 //        session saved   -> ask Stripe for its current status
 //        not saved yet   -> call create again with the SAME key. Stripe returns
@@ -93,9 +94,11 @@ export const getRoomAccess: RequestHandler<{ id: string }> = async (
 // no "payment still processing" state to handle.
 // ---------------------------------------------------------------------------
 
-// Stripe requires expires_at to be at least 30 minutes after creation.
-// One extra minute keeps us clear of that limit even if clocks drift a little.
-const CHECKOUT_LIFETIME_MS = 31 * 60 * 1000;
+// We don't send expires_at, so Stripe uses its default: 24 hours after the
+// session is created. That keeps every retry with the same idempotency key
+// sending identical, always-valid parameters. The slot lives a bit longer
+// (one extra hour) so it never ends before its Stripe session can.
+const SLOT_LIFETIME_MS = 25 * 60 * 60 * 1000;
 // Retries while another request is mid-call to Stripe or we lost a claim race.
 const MAX_ATTEMPTS = 10;
 const RETRY_DELAY_MS = 300;
@@ -112,6 +115,7 @@ export interface CheckoutDeps {
   ) => Promise<void>;
   findPendingCheckout: typeof findPendingCheckout;
   claimPendingCheckout: typeof claimPendingCheckout;
+  hasRoomAccess: (userId: string, roomName: string) => Promise<boolean>;
   savePendingCheckoutSession: typeof savePendingCheckoutSession;
   deletePendingCheckout: typeof deletePendingCheckout;
   createStripeSession: (
@@ -144,7 +148,7 @@ export async function startOrReuseCheckout(
     if (!pending) {
       const record = {
         idempotencyKey: deps.newIdempotencyKey(),
-        expiresAt: new Date(deps.now() + CHECKOUT_LIFETIME_MS),
+        expiresAt: new Date(deps.now() + SLOT_LIFETIME_MS),
       };
       const claimed = await deps.claimPendingCheckout(
         userId,
@@ -153,6 +157,20 @@ export async function startOrReuseCheckout(
         record.expiresAt,
       );
       if (!claimed) continue; // Lost the race: loop and use the winner's slot.
+
+      // The room may have been unlocked after the caller's access check but
+      // before our claim (the webhook then deleted the old slot, so we saw
+      // none). The webhook grants access BEFORE it deletes the slot, so this
+      // recheck after claiming is enough to catch that: free our slot and
+      // don't sell the room again.
+      if (await deps.hasRoomAccess(userId, roomName)) {
+        await deps.deletePendingCheckout(
+          userId,
+          roomName,
+          record.idempotencyKey,
+        );
+        return { hasAccess: true };
+      }
       pending = record;
     }
 
@@ -182,8 +200,7 @@ export async function startOrReuseCheckout(
               metadata: { userId, roomName },
               success_url: `${clientUrl}/?checkout=success&room=${room}`,
               cancel_url: `${clientUrl}/?checkout=cancelled&room=${room}`,
-              // Taken from the slot so every retry sends identical parameters.
-              expires_at: Math.floor(pending.expiresAt.getTime() / 1000),
+              // No expires_at: Stripe's 24h default (see SLOT_LIFETIME_MS).
             },
             pending.idempotencyKey,
           );
@@ -247,6 +264,7 @@ const checkoutDeps: CheckoutDeps = {
   grantRoomAccess,
   findPendingCheckout,
   claimPendingCheckout,
+  hasRoomAccess,
   savePendingCheckoutSession,
   deletePendingCheckout,
   createStripeSession: (params, idempotencyKey) =>

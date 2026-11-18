@@ -17,14 +17,15 @@ const pendingCheckoutSchema = new Schema(
     // Filled in once Stripe has created the session.
     stripeSessionId: { type: String },
     url: { type: String },
-    // When the Stripe session stops accepting payment (we send this to Stripe).
+    // When the slot ends: after the latest time its Stripe session could
+    // still be open (Stripe's default 24h expiry, plus a margin).
     expiresAt: { type: Date, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 pendingCheckoutSchema.index({ userId: 1, roomName: 1 }, { unique: true });
-// Housekeeping: MongoDB deletes a row a day after its session expired.
+// Housekeeping: MongoDB deletes a row a day after the slot ended.
 // Checkout is card-only, so an expired session can never charge anyone.
 pendingCheckoutSchema.index(
   { expiresAt: 1 },
