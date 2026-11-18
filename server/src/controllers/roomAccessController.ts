@@ -93,7 +93,7 @@ export const createCheckoutSession: RequestHandler<{ id: string }> = async (
 
   // In production the built client is served by this server, so fall back to our own origin.
   const clientUrl = (
-    process.env.CLIENT_URL ?? `${req.protocol}://${req.get('host')}`
+    process.env.CLIENT_URL?.trim() || `${req.protocol}://${req.get('host')}`
   ).replace(/\/+$/, '');
   const room = encodeURIComponent(roomName);
 
