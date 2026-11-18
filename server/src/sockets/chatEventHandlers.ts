@@ -7,6 +7,11 @@ export function registerChatHandlers(io: Server) {
   io.on('connect', (socket) => {
     console.log(`A user connected: ${socket.id}`);
 
+    // Counts join requests on this socket. The premium access check is async,
+    // so if the user switches rooms quickly, an older lookup can finish after
+    // a newer one. Only the latest request is allowed to change membership.
+    let latestJoinRequest = 0;
+
     socket.on('join_room', async (roomId: unknown) => {
       try {
         const result = roomNameSchema.safeParse(roomId);
@@ -16,8 +21,15 @@ export function registerChatHandlers(io: Server) {
           return;
         }
 
+        const joinRequest = ++latestJoinRequest;
+
         // Premium rooms (e.g. Mewtwo) require a paid unlock before joining.
-        if (!(await userCanAccessRoom(socket.data.userId, result.data))) {
+        const canAccess = await userCanAccessRoom(socket.data.userId, result.data);
+
+        // A newer join_room arrived while we were waiting; drop this stale one.
+        if (joinRequest !== latestJoinRequest) return;
+
+        if (!canAccess) {
           socket.emit('error', {
             message: 'This room is premium. Unlock it to join.',
             code: 'PREMIUM_LOCKED',
