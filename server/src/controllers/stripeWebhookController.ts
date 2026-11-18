@@ -60,7 +60,14 @@ export function createStripeWebhookHandler(
     }
 
     // Acknowledge every event we don't act on so Stripe stops retrying it.
-    if (event.type !== 'checkout.session.completed') {
+    // checkout.session.completed fires when Checkout finishes. For delayed
+    // payment methods (e.g. bank debits) the session can complete as 'unpaid'
+    // and the money arrives later as checkout.session.async_payment_succeeded,
+    // so both events can unlock the room.
+    if (
+      event.type !== 'checkout.session.completed' &&
+      event.type !== 'checkout.session.async_payment_succeeded'
+    ) {
       res.status(200).json({ received: true });
       return;
     }

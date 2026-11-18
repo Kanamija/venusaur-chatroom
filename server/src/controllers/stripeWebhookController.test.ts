@@ -79,6 +79,22 @@ describe('Stripe webhook handler', () => {
     assert.equal(access.get('user_1:Mewtwo'), 'cs_test_1');
   });
 
+  it('unlocks the room when a delayed payment succeeds later', async () => {
+    const completedUnpaid = makeDeps(makeEvent({ payment_status: 'unpaid' }));
+    assert.equal((await callHandler(completedUnpaid.deps)).status, 200);
+    assert.equal(completedUnpaid.access.size, 0);
+
+    const asyncSucceeded = {
+      ...makeEvent(),
+      id: 'evt_async_1',
+      type: 'checkout.session.async_payment_succeeded',
+    } as unknown as Stripe.Event;
+    const { deps, access } = makeDeps(asyncSucceeded);
+    const res = await callHandler(deps);
+    assert.equal(res.status, 200);
+    assert.equal(access.get('user_1:Mewtwo'), 'cs_test_1');
+  });
+
   it('processes a duplicate delivery only once', async () => {
     const { deps, access } = makeDeps(makeEvent());
     const first = await callHandler(deps);
