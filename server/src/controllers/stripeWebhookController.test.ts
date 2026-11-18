@@ -185,4 +185,14 @@ describe('Stripe webhook handler', () => {
     assert.equal((await callHandler(failing.deps)).status, 200);
     assert.equal(failing.access.size, 1);
   });
+
+  it('frees the checkout slot when a delayed payment fails, so the user can try again', async () => {
+    const event = makeEvent({ payment_status: 'unpaid' });
+    (event as { type: string }).type = 'checkout.session.async_payment_failed';
+    const { deps, access, clearedSessions } = makeDeps(event);
+    const res = await callHandler(deps);
+    assert.equal(res.status, 200);
+    assert.deepEqual(clearedSessions, ['cs_test_1']);
+    assert.equal(access.size, 0);
+  });
 });

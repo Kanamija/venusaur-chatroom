@@ -36,7 +36,7 @@ router.post(
   (_req, res) => {
     res.status(200).json({
       success: true,
-      ...res.locals.checkout, // { url }, { hasAccess: true } or { paymentProcessing: true }
+      ...res.locals.checkout, // { url } or { hasAccess: true }
     });
   },
 );

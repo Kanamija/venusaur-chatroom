@@ -376,14 +376,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
         return;
       }
 
-      // Paid already, but the payment is still clearing: wait instead of paying again.
-      if (res.ok && data?.paymentProcessing === true) {
-        setFinishingUnlockRoom(currentRoomName);
-        setIsRedirecting(false);
-        checkoutInFlight.current = false;
-        return;
-      }
-
       if (!res.ok || !data?.url) {
         throw new Error(data?.message || `Checkout failed (${res.status})`);
       }

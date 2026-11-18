@@ -77,32 +77,34 @@ export const getRoomAccess: RequestHandler<{ id: string }> = async (
 // Without this, two tabs (or clicking Unlock again on the return screen
 // before the webhook lands) could each create a session and charge twice.
 // The flow for every Unlock click:
-//   1. Already unlocked?               -> 409, nothing to buy.
-//   2. Outstanding checkout on record? -> ask Stripe about it:
-//        open             -> send the user back to that same session
-//        complete & paid  -> unlock now (same idempotent grant as the webhook)
-//        expired          -> drop it and start fresh
-//   3. Nothing on record -> claim the slot with an atomic insert, then create
-//      the Stripe session. A request that loses the race waits briefly and
-//      reuses the winner's session instead of creating its own.
+//   1. Nothing on record -> claim the slot with an atomic insert that also
+//      stores a fresh idempotency key. Only one request can win.
+//   2. Get the session for that slot:
+//        session saved   -> ask Stripe for its current status
+//        not saved yet   -> call create again with the SAME key. Stripe returns
+//                           the same session, even if another request (slow,
+//                           crashed or failed to save) made the first call.
+//   3. Act on it:
+//        open             -> send the user to that same session
+//        complete (paid)  -> unlock now (same idempotent grant as the webhook)
+//        expired          -> drop the slot and start again at step 1
+//
+// Checkout is card-only, so a completed session is always paid and there is
+// no "payment still processing" state to handle.
 // ---------------------------------------------------------------------------
 
 // Stripe requires expires_at to be at least 30 minutes after creation.
 // One extra minute keeps us clear of that limit even if clocks drift a little.
 const CHECKOUT_LIFETIME_MS = 31 * 60 * 1000;
-// A claim that never got a Stripe session (e.g. the server crashed) is abandoned after this.
-const CLAIM_TIMEOUT_MS = 30 * 1000;
-// How many times to re-read while another request is still creating its session.
+// Retries while another request is mid-call to Stripe or we lost a claim race.
 const MAX_ATTEMPTS = 10;
 const RETRY_DELAY_MS = 300;
 
 export type CheckoutOutcome =
   | { url: string } // Open this Stripe Checkout page
-  | { hasAccess: true } // An earlier payment was found and the room is now unlocked
-  | { paymentProcessing: true }; // Paid with a method that hasn't cleared yet
+  | { hasAccess: true }; // An earlier payment was found and the room is now unlocked
 
 export interface CheckoutDeps {
-  hasRoomAccess: (userId: string, roomName: string) => Promise<boolean>;
   grantRoomAccess: (
     userId: string,
     roomName: string,
@@ -117,13 +119,13 @@ export interface CheckoutDeps {
     idempotencyKey: string,
   ) => Promise<Stripe.Checkout.Session>;
   retrieveStripeSession: (id: string) => Promise<Stripe.Checkout.Session>;
-  newClaimId: () => string;
+  newIdempotencyKey: () => string;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
 }
 
-// startOrReuseCheckout() — The decision logic above, with every database and
-// Stripe call injected so it can be tested without either.
+// startOrReuseCheckout() — The flow above, with every database and Stripe
+// call injected so it can be tested without either.
 export async function startOrReuseCheckout(
   deps: CheckoutDeps,
   args: {
@@ -134,94 +136,106 @@ export async function startOrReuseCheckout(
   },
 ): Promise<CheckoutOutcome> {
   const { userId, roomName, priceId, clientUrl } = args;
+  const room = encodeURIComponent(roomName);
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const pending = await deps.findPendingCheckout(userId, roomName);
+    // 1. Find the slot, or claim it.
+    let pending = await deps.findPendingCheckout(userId, roomName);
+    if (!pending) {
+      const record = {
+        idempotencyKey: deps.newIdempotencyKey(),
+        expiresAt: new Date(deps.now() + CHECKOUT_LIFETIME_MS),
+      };
+      const claimed = await deps.claimPendingCheckout(
+        userId,
+        roomName,
+        record.idempotencyKey,
+        record.expiresAt,
+      );
+      if (!claimed) continue; // Lost the race: loop and use the winner's slot.
+      pending = record;
+    }
 
-    if (pending) {
-      // Another request claimed the slot but hasn't saved its session yet.
-      if (!pending.stripeSessionId) {
-        if (pending.expiresAt.getTime() <= deps.now()) {
-          // That request died mid-way: free the slot and try again.
-          await deps.deletePendingCheckout(userId, roomName, pending.claimId);
-        } else {
-          await deps.sleep(RETRY_DELAY_MS);
-        }
-        continue;
-      }
-
-      const session = await deps.retrieveStripeSession(pending.stripeSessionId);
-
-      if (session.status === 'open' && session.url) {
-        return { url: session.url }; // Reuse: same session, so only one charge possible.
-      }
-
-      if (session.status === 'complete') {
-        if (session.payment_status === 'paid') {
-          // Paid, but the webhook hasn't unlocked the room yet. Unlock it now.
-          await deps.grantRoomAccess(userId, roomName, session.id);
-          await deps.deletePendingCheckout(userId, roomName, pending.claimId);
-          return { hasAccess: true };
-        }
-        // Completed with a payment that is still clearing: don't sell it twice.
-        return { paymentProcessing: true };
-      }
-
-      // Expired (or unusable): drop it and create a fresh one below.
-      await deps.deletePendingCheckout(userId, roomName, pending.claimId);
+    // A slot whose session was never saved (no user ever got its URL) and
+    // whose time is up can't be paid: drop it and start fresh.
+    if (!pending.stripeSessionId && pending.expiresAt.getTime() <= deps.now()) {
+      await deps.deletePendingCheckout(
+        userId,
+        roomName,
+        pending.idempotencyKey,
+      );
       continue;
     }
 
-    // Nothing outstanding: try to claim the slot. Only one request can win.
-    const claimId = deps.newClaimId();
-    const claimed = await deps.claimPendingCheckout(
-      userId,
-      roomName,
-      claimId,
-      new Date(deps.now() + CLAIM_TIMEOUT_MS),
-    );
-    if (!claimed) continue; // Lost the race: loop and reuse the winner's session.
-
+    // 2. Get the session for this slot.
+    let session: Stripe.Checkout.Session;
     try {
-      // The webhook may have unlocked the room between step 1 and our claim.
-      if (await deps.hasRoomAccess(userId, roomName)) {
-        await deps.deletePendingCheckout(userId, roomName, claimId);
-        return { hasAccess: true };
-      }
-
-      const room = encodeURIComponent(roomName);
-      const session = await deps.createStripeSession(
-        {
-          mode: 'payment',
-          line_items: [{ price: priceId, quantity: 1 }],
-          client_reference_id: userId,
-          metadata: { userId, roomName },
-          success_url: `${clientUrl}/?checkout=success&room=${room}`,
-          cancel_url: `${clientUrl}/?checkout=cancelled&room=${room}`,
-          expires_at: Math.floor((deps.now() + CHECKOUT_LIFETIME_MS) / 1000),
-        },
-        // Same key on a network retry means Stripe returns the same session.
-        `checkout:${userId}:${roomName}:${claimId}`,
-      );
-      if (!session.url) {
-        throw new AppError('Internal Server Error', 500, {
-          log: 'roomAccessController.startOrReuseCheckout: Stripe returned no URL',
-        });
-      }
-
-      await deps.savePendingCheckoutSession(userId, roomName, claimId, {
-        stripeSessionId: session.id,
-        url: session.url,
-        expiresAt: new Date((session.expires_at ?? 0) * 1000),
-      });
-      return { url: session.url };
+      session = pending.stripeSessionId
+        ? await deps.retrieveStripeSession(pending.stripeSessionId)
+        : await deps.createStripeSession(
+            {
+              mode: 'payment',
+              // Cards are paid the moment Checkout completes (no delayed methods).
+              allowed_payment_method_types: ['card'],
+              line_items: [{ price: priceId, quantity: 1 }],
+              client_reference_id: userId,
+              metadata: { userId, roomName },
+              success_url: `${clientUrl}/?checkout=success&room=${room}`,
+              cancel_url: `${clientUrl}/?checkout=cancelled&room=${room}`,
+              // Taken from the slot so every retry sends identical parameters.
+              expires_at: Math.floor(pending.expiresAt.getTime() / 1000),
+            },
+            pending.idempotencyKey,
+          );
     } catch (err) {
-      // Free the slot so the next click can try again.
-      await deps
-        .deletePendingCheckout(userId, roomName, claimId)
-        .catch(() => undefined);
-      throw err;
+      // 409 = another request is using this key right now. Wait for it.
+      if ((err as { statusCode?: number }).statusCode === 409) {
+        await deps.sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      throw err; // The slot stays, so the next click retries with the same key.
     }
+
+    // Never hand out a session that belongs to someone else or another room.
+    if (
+      session.metadata?.userId !== userId ||
+      session.metadata?.roomName !== roomName
+    ) {
+      throw new AppError('Internal Server Error', 500, {
+        log: `roomAccessController.startOrReuseCheckout: Session ${session.id} does not match ${userId}/${roomName}`,
+      });
+    }
+
+    // 3. Act on the session's status.
+    const stillOpen =
+      session.status === 'open' &&
+      session.url &&
+      (session.expires_at ?? 0) * 1000 > deps.now();
+    if (stillOpen) {
+      if (!pending.stripeSessionId) {
+        await deps.savePendingCheckoutSession(
+          userId,
+          roomName,
+          pending.idempotencyKey,
+          { stripeSessionId: session.id, url: session.url! },
+        );
+      }
+      return { url: session.url! }; // Same session, so only one charge possible.
+    }
+
+    if (session.status === 'complete' && session.payment_status === 'paid') {
+      // Paid, but the webhook hasn't unlocked the room yet. Unlock it now.
+      await deps.grantRoomAccess(userId, roomName, session.id);
+      await deps.deletePendingCheckout(
+        userId,
+        roomName,
+        pending.idempotencyKey,
+      );
+      return { hasAccess: true };
+    }
+
+    // Expired: nobody can pay it any more. Drop it and create a fresh one.
+    await deps.deletePendingCheckout(userId, roomName, pending.idempotencyKey);
   }
 
   throw new AppError('Checkout is busy. Please try again.', 503, {
@@ -230,7 +244,6 @@ export async function startOrReuseCheckout(
 }
 
 const checkoutDeps: CheckoutDeps = {
-  hasRoomAccess,
   grantRoomAccess,
   findPendingCheckout,
   claimPendingCheckout,
@@ -239,7 +252,7 @@ const checkoutDeps: CheckoutDeps = {
   createStripeSession: (params, idempotencyKey) =>
     getStripe().checkout.sessions.create(params, { idempotencyKey }),
   retrieveStripeSession: (id) => getStripe().checkout.sessions.retrieve(id),
-  newClaimId: () => randomUUID(),
+  newIdempotencyKey: () => `checkout:${randomUUID()}`,
   now: () => Date.now(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
@@ -277,7 +290,7 @@ export const createCheckoutSession: RequestHandler<{ id: string }> = async (
     process.env.CLIENT_URL?.trim() || `${req.protocol}://${req.get('host')}`
   ).replace(/\/+$/, '');
 
-  // See CheckoutOutcome for the three possible answers.
+  // See CheckoutOutcome for the two possible answers.
   res.locals.checkout = await startOrReuseCheckout(checkoutDeps, {
     userId,
     roomName,

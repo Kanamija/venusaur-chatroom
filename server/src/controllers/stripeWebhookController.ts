@@ -59,11 +59,26 @@ export function createStripeWebhookHandler(
       return;
     }
 
+    // A delayed payment failed: free the user's checkout slot so they can try again.
+    // (Checkout is card-only, so this and async_payment_succeeded shouldn't
+    // happen. They're handled anyway in case other payment methods are added.)
+    if (event.type === 'checkout.session.async_payment_failed') {
+      try {
+        await deps.clearPendingCheckout(event.data.object.id);
+      } catch (err) {
+        console.error('stripeWebhook: Could not clear pending checkout:', err);
+        res
+          .status(500)
+          .json({ success: false, message: 'Failed to process event' });
+        return;
+      }
+      res.status(200).json({ received: true });
+      return;
+    }
+
     // Acknowledge every event we don't act on so Stripe stops retrying it.
-    // checkout.session.completed fires when Checkout finishes. For delayed
-    // payment methods (e.g. bank debits) the session can complete as 'unpaid'
-    // and the money arrives later as checkout.session.async_payment_succeeded,
-    // so both events can unlock the room.
+    // checkout.session.completed fires when Checkout finishes (paid, for cards).
+    // async_payment_succeeded is the "money arrived later" event for delayed methods.
     if (
       event.type !== 'checkout.session.completed' &&
       event.type !== 'checkout.session.async_payment_succeeded'

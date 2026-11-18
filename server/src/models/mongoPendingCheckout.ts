@@ -1,30 +1,31 @@
 import { Schema, model } from 'mongoose';
 import { isDuplicateKeyError } from './mongoErrors.js';
 
-// At most one open Stripe Checkout per user per premium room.
+// At most one Stripe Checkout per user per premium room.
 // The unique index below is what stops two tabs (or a double click) from
 // creating two payable sessions: only one insert can win the slot.
 //
-// Lifecycle:
-//   'creating' – a request has claimed the slot and is asking Stripe for a session
-//   'open'     – the Stripe session exists; other requests reuse its url
-// The row is removed when the room is unlocked or the session expires.
+// The row is created *before* we call Stripe and holds the idempotency key
+// for that call. Any request can repeat the call with the same key and Stripe
+// hands back the same session, so a slow, crashed or failed request never
+// leads to a second session.
 const pendingCheckoutSchema = new Schema(
   {
     userId: { type: String, required: true },
     roomName: { type: String, required: true },
-    claimId: { type: String, required: true }, // Which request owns this slot
-    status: { type: String, enum: ['creating', 'open'], required: true },
+    idempotencyKey: { type: String, required: true },
+    // Filled in once Stripe has created the session.
     stripeSessionId: { type: String },
     url: { type: String },
-    // 'creating': when the claim counts as abandoned. 'open': when the Stripe session expires.
+    // When the Stripe session stops accepting payment (we send this to Stripe).
     expiresAt: { type: Date, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 pendingCheckoutSchema.index({ userId: 1, roomName: 1 }, { unique: true });
-// MongoDB deletes leftovers a day after they expire, in case nothing else cleans them up.
+// Housekeeping: MongoDB deletes a row a day after its session expired.
+// Checkout is card-only, so an expired session can never charge anyone.
 pendingCheckoutSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 24 * 60 * 60 },
@@ -33,8 +34,7 @@ pendingCheckoutSchema.index(
 const PendingCheckout = model('PendingCheckout', pendingCheckoutSchema);
 
 export interface PendingCheckoutRecord {
-  claimId: string;
-  status: 'creating' | 'open';
+  idempotencyKey: string;
   stripeSessionId?: string;
   url?: string;
   expiresAt: Date;
@@ -48,8 +48,7 @@ export async function findPendingCheckout(
   const doc = await PendingCheckout.findOne({ userId, roomName }).lean();
   if (!doc) return null;
   return {
-    claimId: doc.claimId,
-    status: doc.status as PendingCheckoutRecord['status'],
+    idempotencyKey: doc.idempotencyKey,
     stripeSessionId: doc.stripeSessionId ?? undefined,
     url: doc.url ?? undefined,
     expiresAt: doc.expiresAt,
@@ -61,15 +60,14 @@ export async function findPendingCheckout(
 export async function claimPendingCheckout(
   userId: string,
   roomName: string,
-  claimId: string,
+  idempotencyKey: string,
   expiresAt: Date,
 ): Promise<boolean> {
   try {
     await PendingCheckout.create({
       userId,
       roomName,
-      claimId,
-      status: 'creating',
+      idempotencyKey,
       expiresAt,
     });
     return true;
@@ -79,30 +77,32 @@ export async function claimPendingCheckout(
   }
 }
 
-// savePendingCheckoutSession() — Store the Stripe session on the slot we claimed.
+// savePendingCheckoutSession() — Store the Stripe session on the slot, but only
+// if the slot still belongs to the same idempotency key.
 export async function savePendingCheckoutSession(
   userId: string,
   roomName: string,
-  claimId: string,
-  session: { stripeSessionId: string; url: string; expiresAt: Date },
+  idempotencyKey: string,
+  session: { stripeSessionId: string; url: string },
 ): Promise<void> {
   await PendingCheckout.updateOne(
-    { userId, roomName, claimId },
-    { $set: { status: 'open', ...session } },
+    { userId, roomName, idempotencyKey },
+    { $set: session },
   );
 }
 
-// deletePendingCheckout() — Free the slot, but only if it is still the claim we
-// looked at, so we never delete a newer request's session by mistake.
+// deletePendingCheckout() — Free the slot, but only if it is still the one we
+// looked at, so we never delete a newer checkout by mistake.
 export async function deletePendingCheckout(
   userId: string,
   roomName: string,
-  claimId: string,
+  idempotencyKey: string,
 ): Promise<void> {
-  await PendingCheckout.deleteOne({ userId, roomName, claimId });
+  await PendingCheckout.deleteOne({ userId, roomName, idempotencyKey });
 }
 
-// clearPendingCheckoutForSession() — Used by the webhook once a session is paid.
+// clearPendingCheckoutForSession() — Used by the webhook once a session is
+// paid (room unlocked) or its payment failed (user may try again).
 export async function clearPendingCheckoutForSession(
   stripeSessionId: string,
 ): Promise<void> {
