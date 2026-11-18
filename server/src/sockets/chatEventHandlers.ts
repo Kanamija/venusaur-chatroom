@@ -1,23 +1,52 @@
 import type { Server } from 'socket.io';
 import { roomNameSchema, sendMessageSchema } from '../schemas/messageSchema.js';
 import { saveMessage } from '../models/mongoMessage.js';
+import { userCanAccessRoom } from '../controllers/roomAccessController.js';
 
 export function registerChatHandlers(io: Server) {
   io.on('connect', (socket) => {
     console.log(`A user connected: ${socket.id}`);
 
-    socket.on('join_room', (roomId: unknown) => {
-      const result = roomNameSchema.safeParse(roomId);
+    // Counts join requests on this socket. The premium access check is async,
+    // so if the user switches rooms quickly, an older lookup can finish after
+    // a newer one. Only the latest request is allowed to change membership.
+    let latestJoinRequest = 0;
 
-      if (!result.success) {
-        socket.emit('error', { message: 'Unknown room' });
-        return;
+    socket.on('join_room', async (roomId: unknown) => {
+      try {
+        const result = roomNameSchema.safeParse(roomId);
+
+        if (!result.success) {
+          socket.emit('error', { message: 'Unknown room' });
+          return;
+        }
+
+        const joinRequest = ++latestJoinRequest;
+
+        // Premium rooms (e.g. Mewtwo) require a paid unlock before joining.
+        const canAccess = await userCanAccessRoom(socket.data.userId, result.data);
+
+        // A newer join_room arrived while we were waiting; drop this stale one.
+        if (joinRequest !== latestJoinRequest) return;
+
+        if (!canAccess) {
+          socket.emit('error', {
+            message: 'This room is premium. Unlock it to join.',
+            code: 'PREMIUM_LOCKED',
+            roomId: result.data,
+          });
+          return;
+        }
+
+        for (const joinedRoom of socket.rooms) {
+          if (joinedRoom !== socket.id) socket.leave(joinedRoom);
+        }
+        socket.join(result.data);
+        console.log(`Socket ${socket.id} joined room: ${result.data}`);
+      } catch (error) {
+        console.error('Error handling join_room:', error);
+        socket.emit('error', { message: 'Failed to join room' });
       }
-      for (const joinedRoom of socket.rooms) {
-        if (joinedRoom !== socket.id) socket.leave(joinedRoom);
-      }
-      socket.join(result.data);
-      console.log(`Socket ${socket.id} joined room: ${result.data}`);
     });
 
     socket.on('send_message', async (data: unknown) => {
@@ -26,6 +55,15 @@ export function registerChatHandlers(io: Server) {
 
         if (!result.success) {
           socket.emit('error', { message: 'Invalid message payload' });
+          return;
+        }
+
+        if (!(await userCanAccessRoom(socket.data.userId, result.data.roomId))) {
+          socket.emit('error', {
+            message: 'This room is premium. Unlock it to chat.',
+            code: 'PREMIUM_LOCKED',
+            roomId: result.data.roomId,
+          });
           return;
         }
 

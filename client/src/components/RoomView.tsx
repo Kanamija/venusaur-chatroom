@@ -4,6 +4,7 @@ import type { RoomTheme } from '../types/theme';
 import { ChatBubble } from './ChatBubble';
 import { ChatRoomLayout } from './ChatRoomLayout';
 import { RoomHeader } from './RoomHeader';
+import { PremiumLockOverlay } from './PremiumLockOverlay';
 
 // Complementary bubble color options per room theme
 const COMPLEMENTARY_BUBBLE_STYLES: Record<
@@ -21,6 +22,10 @@ const COMPLEMENTARY_BUBBLE_STYLES: Record<
   Pikachu: {
     primary: 'bg-yellow-300 border-yellow-400',
     secondary: 'bg-purple-200 border-purple-300',
+  },
+  Mewtwo: {
+    primary: 'bg-fuchsia-200 border-fuchsia-300',
+    secondary: 'bg-violet-100 border-violet-200',
   },
 };
 
@@ -49,7 +54,51 @@ const ROOM_CONFIGS: RoomTheme[] = [
       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png',
     isAvailable: true,
   },
+  {
+    name: 'Mewtwo',
+    bgGradient: 'from-violet-950 via-purple-900 to-slate-950',
+    accentColor: 'bg-fuchsia-200 border-fuchsia-300',
+    spriteUrl:
+      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png',
+    isAvailable: true,
+    bgImageUrl: '/rooms/mewtwo-cave.jpg',
+    effect: 'psychic',
+    isPremium: true,
+    premiumPriceLabel: 'CA$3',
+  },
 ];
+
+const PREMIUM_ROOM_NAMES = ROOM_CONFIGS.filter((r) => r.isPremium).map(
+  (r) => r.name,
+);
+
+type Notice = {
+  kind: 'success' | 'info' | 'error';
+  text: string;
+  sticky?: boolean;
+} | null;
+
+// Ask the server whether the logged-in user has unlocked a premium room.
+async function fetchRoomAccess(roomName: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/rooms/${roomName}/access`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.hasAccess === true;
+  } catch {
+    return false;
+  }
+}
+
+// Read ?checkout=success|cancelled&room=... once, when returning from Stripe.
+function readCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search);
+  return { status: params.get('checkout'), room: params.get('room') };
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface RoomViewProps {
   user?: { username: string } | null;
@@ -67,8 +116,109 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const [inputText, setInputText] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Premium access per room: true = unlocked, false = locked, missing = still checking.
+  const [premiumAccess, setPremiumAccess] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  // Blocks a second Unlock click before React has re-rendered the disabled button.
+  const checkoutInFlight = useRef(false);
+  // Room the user just paid for whose unlock hasn't been confirmed yet. While set,
+  // the lock card offers "Check again" instead of a second purchase.
+  const [finishingUnlockRoom, setFinishingUnlockRoom] = useState<string | null>(
+    null,
+  );
+  const [isRecheckingAccess, setIsRecheckingAccess] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  // Captured once on first render so React StrictMode's double effects don't lose it.
+  const [checkoutReturn] = useState(readCheckoutReturn);
+
   const activeTheme =
     ROOM_CONFIGS.find((r) => r.name === currentRoomName) || ROOM_CONFIGS[0];
+  const accessKnown = activeTheme.name in premiumAccess;
+  const isLocked =
+    !!activeTheme.isPremium && premiumAccess[activeTheme.name] !== true;
+  const lockedRooms = PREMIUM_ROOM_NAMES.filter(
+    (name) => premiumAccess[name] === false,
+  );
+
+  // Check premium access on load, and handle the return trip from Stripe Checkout.
+  useEffect(() => {
+    let cancelled = false;
+    const { status, room } = checkoutReturn;
+    if (status) window.history.replaceState(null, '', window.location.pathname);
+
+    async function loadAccess() {
+      const results = await Promise.all(
+        PREMIUM_ROOM_NAMES.map(
+          async (name) => [name, await fetchRoomAccess(name)] as const,
+        ),
+      );
+      if (cancelled) return;
+      setPremiumAccess(Object.fromEntries(results));
+
+      if (status === 'cancelled') {
+        setNotice({
+          kind: 'info',
+          text: 'Checkout cancelled. You were not charged.',
+        });
+        return;
+      }
+      if (status !== 'success' || !room || !PREMIUM_ROOM_NAMES.includes(room)) {
+        return;
+      }
+
+      // Stripe's webhook can land a moment after the redirect, so poll briefly.
+      // Meanwhile the lock card shows "finishing unlock" with no Unlock button,
+      // so the user can't accidentally pay a second time.
+      setCurrentRoomName(room);
+      if (results.some(([name, ok]) => name === room && ok)) {
+        setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+        return;
+      }
+      setFinishingUnlockRoom(room);
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (await fetchRoomAccess(room)) {
+          if (cancelled) return;
+          setPremiumAccess((prev) => ({ ...prev, [room]: true }));
+          setFinishingUnlockRoom(null);
+          setNotice({
+            kind: 'success',
+            text: `The ${room} Room is unlocked ✨`,
+          });
+          return;
+        }
+        await wait(1500);
+        if (cancelled) return;
+      }
+      // Still not confirmed: leave the "Check again" button up for the user.
+    }
+
+    loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutReturn]);
+
+  // Auto-dismiss non-sticky notices.
+  useEffect(() => {
+    if (!notice || notice.sticky) return;
+    const timer = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // If the user comes back from Stripe with the browser's Back button, re-enable Unlock.
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -82,6 +232,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   useEffect(() => {
     let ignore = false;
     setMessages([]); // Clear old room messages immediately so they don't bleed over
+    if (isLocked) return; // Premium room not unlocked yet: nothing to load
 
     fetch(`/api/rooms/${currentRoomName}/messages`)
       .then((res) => {
@@ -112,13 +263,14 @@ export const RoomView: React.FC<RoomViewProps> = ({
     return () => {
       ignore = true; // Cleanup flag when room changes
     };
-  }, [currentRoomName]);
+  }, [currentRoomName, isLocked]);
 
   // 2. Handle room joining and live socket message updates / deletion
   useEffect(() => {
     if (!socket) return;
 
-    socket.emit('join_room', currentRoomName);
+    // The server refuses premium rooms until they're unlocked, so don't ask yet.
+    if (!isLocked) socket.emit('join_room', currentRoomName);
 
     const handleReceiveMessage = (incomingData: any) => {
       if (incomingData.roomId === currentRoomName) {
@@ -164,16 +316,83 @@ export const RoomView: React.FC<RoomViewProps> = ({
       socket.off('receive_message', handleReceiveMessage);
       socket.off('message_deleted', handleMessageDeleted);
     };
-  }, [currentRoomName, socket]);
+  }, [currentRoomName, socket, isLocked]);
 
   const handleSelectRoom = (roomName: string) => {
     setCurrentRoomName(roomName);
+    setUnlockError(null);
+  };
+
+  // "Check again" on the finishing-unlock card: ask the server once more.
+  const handleCheckAgain = async () => {
+    const room = currentRoomName;
+    setUnlockError(null);
+    setIsRecheckingAccess(true);
+    const unlocked = await fetchRoomAccess(room);
+    setIsRecheckingAccess(false);
+    if (unlocked) {
+      setPremiumAccess((prev) => ({ ...prev, [room]: true }));
+      setFinishingUnlockRoom(null);
+      setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+    } else {
+      setUnlockError(
+        'Still finishing up. Give it a few seconds and check again.',
+      );
+    }
+  };
+
+  // Start Stripe Checkout for the current premium room. The server reuses an
+  // open checkout if one exists, so this never creates a second charge.
+  const handleUnlock = async () => {
+    if (checkoutInFlight.current) return; // Ignore double clicks
+    checkoutInFlight.current = true;
+    setUnlockError(null);
+    setIsRedirecting(true);
+    try {
+      const res = await fetch(`/api/rooms/${currentRoomName}/checkout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Already unlocked (e.g. paid in another tab).
+      if (res.status === 409) {
+        setPremiumAccess((prev) => ({ ...prev, [currentRoomName]: true }));
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+        return;
+      }
+
+      const data = await res.json().catch(() => null);
+
+      // The server found an earlier payment that just hadn't unlocked yet.
+      if (res.ok && data?.hasAccess === true) {
+        setPremiumAccess((prev) => ({ ...prev, [currentRoomName]: true }));
+        setNotice({
+          kind: 'success',
+          text: `The ${currentRoomName} Room is unlocked ✨`,
+        });
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+        return;
+      }
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.message || `Checkout failed (${res.status})`);
+      }
+      window.location.assign(data.url);
+    } catch (err) {
+      console.error('Error starting checkout:', err);
+      setUnlockError('Could not open checkout. Please try again.');
+      setIsRedirecting(false);
+      checkoutInFlight.current = false;
+    }
   };
 
   const handleSubmitMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
     if (!socket) return;
+    if (isLocked) return;
 
     const currentUsername = user?.username || 'Trainer';
 
@@ -207,19 +426,57 @@ export const RoomView: React.FC<RoomViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
+    <div className="flex flex-col h-screen h-dvh bg-black">
       <RoomHeader
         rooms={ROOM_CONFIGS}
         currentRoom={currentRoomName}
         onSelectRoom={handleSelectRoom}
         onLogout={onLogout}
+        lockedRooms={lockedRooms}
       />
+
+      {notice && (
+        <div
+          role="status"
+          className={`fixed top-20 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl border px-4 py-3 font-mono text-sm shadow-lg backdrop-blur-md ${
+            notice.kind === 'success'
+              ? 'border-fuchsia-300/50 bg-fuchsia-950/80 text-fuchsia-100'
+              : notice.kind === 'error'
+                ? 'border-rose-300/50 bg-rose-950/80 text-rose-100'
+                : 'border-white/20 bg-black/80 text-gray-100'
+          }`}
+        >
+          <span className="flex-1">{notice.text}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss"
+            className="text-gray-300 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <ChatRoomLayout
         theme={activeTheme}
         inputText={inputText}
         onInputChange={setInputText}
         onSubmitMessage={handleSubmitMessage}
+        isLocked={isLocked}
+        lockedContent={
+          <PremiumLockOverlay
+            roomName={activeTheme.name}
+            priceLabel={activeTheme.premiumPriceLabel}
+            isChecking={!accessKnown}
+            isRedirecting={isRedirecting}
+            error={unlockError}
+            onUnlock={handleUnlock}
+            isFinishingUnlock={finishingUnlockRoom === activeTheme.name}
+            isRecheckingAccess={isRecheckingAccess}
+            onCheckAgain={handleCheckAgain}
+          />
+        }
       >
         {messages.map((msg, index) => {
           const roomStyles =

@@ -12,6 +12,10 @@ import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import { verifySocketSession } from './controllers/socketAuthController.js';
 import { registerChatHandlers } from './sockets/chatEventHandlers.js';
+import { handleStripeWebhook } from './controllers/stripeWebhookController.js';
+import { PendingCheckout } from './models/mongoPendingCheckout.js';
+import { RoomAccess } from './models/mongoRoomAccess.js';
+import { ProcessedStripeEvent } from './models/mongoProcessedStripeEvent.js';
 
 const authDb = process.env.AUTH_DB;
 if (authDb !== 'postgres' && authDb !== 'mongodb') {
@@ -50,6 +54,14 @@ const PORT = Number(process.env.PORT) || 3000;
 // Built frontend files from Vite
 const clientDistPath = path.join(import.meta.dirname, '../../client/dist');
 
+// Stripe webhook needs the raw request body to verify its signature,
+// so it is registered before express.json() parses bodies.
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook,
+);
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -82,6 +94,14 @@ app.use(globalErrorHandler);
 
 async function start() {
   await connectToDatabase();
+
+  // Build the unique indexes before taking requests. The payment code relies
+  // on them to reject duplicates, and on a fresh database they don't exist yet.
+  await Promise.all([
+    PendingCheckout.init(),
+    RoomAccess.init(),
+    ProcessedStripeEvent.init(),
+  ]);
 
   // Listen on the httpServer (which includes Express + Socket.io)
   httpServer.listen(PORT, () => {

@@ -6,3 +6,141 @@
   margin: 0;
   padding: 0;
 }
+
+/* ---------- Mewtwo room: psychic crystal cave ---------- */
+.psy-scene {
+  width: max(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  transform: translate(-50%, -50%);
+}
+
+.psy-orb-glow,
+.psy-orb-ring,
+.psy-orb-core {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+}
+
+.psy-orb-glow {
+  width: 34%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    circle,
+    rgba(232, 180, 255, 0.55) 0%,
+    rgba(168, 85, 247, 0.35) 30%,
+    rgba(126, 34, 206, 0.12) 55%,
+    transparent 70%
+  );
+  animation: psy-pulse 3.2s ease-in-out infinite;
+}
+
+.psy-orb-ring {
+  width: 17%;
+  aspect-ratio: 1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(240, 171, 252, 0.85) 60deg,
+    transparent 120deg,
+    rgba(192, 132, 252, 0.8) 200deg,
+    transparent 260deg,
+    rgba(250, 232, 255, 0.9) 320deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 56%, #000 64%, transparent 70%);
+  mask: radial-gradient(circle, transparent 52%, #000 56%, #000 64%, transparent 70%);
+  filter: blur(1px);
+  animation: psy-spin 6s linear infinite;
+}
+
+.psy-orb-core {
+  width: 7%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, #fff 0%, rgba(245, 208, 254, 0.9) 35%, transparent 70%);
+  animation: psy-flicker 1.8s ease-in-out infinite;
+}
+
+.psy-ripple {
+  position: absolute;
+  left: 50%;
+  top: 80%;
+  width: 12%;
+  aspect-ratio: 4 / 1;
+  border: 2px solid rgba(216, 180, 254, 0.7);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0.3);
+  opacity: 0;
+  animation: psy-ripple 3.9s ease-out infinite;
+}
+
+.psy-sparkle {
+  position: absolute;
+  width: 0.6%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: #f5f3ff;
+  box-shadow:
+    0 0 6px 2px rgba(196, 181, 253, 0.9),
+    0 0 14px 4px rgba(168, 85, 247, 0.6);
+  opacity: 0;
+  animation: psy-twinkle 3.2s ease-in-out infinite;
+}
+
+.psy-mote {
+  position: absolute;
+  bottom: 18%;
+  width: 0.45%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: rgba(233, 213, 255, 0.95);
+  box-shadow: 0 0 8px 2px rgba(192, 132, 252, 0.8);
+  opacity: 0;
+  animation: psy-rise 8s linear infinite;
+}
+
+.psy-float {
+  animation: psy-float 5s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(192, 132, 252, 0.75))
+    drop-shadow(0 0 40px rgba(126, 34, 206, 0.5));
+}
+
+@keyframes psy-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.75; }
+  50% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+}
+@keyframes psy-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes psy-flicker {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+@keyframes psy-ripple {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+}
+@keyframes psy-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+@keyframes psy-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-60cqh); opacity: 0; }
+}
+@keyframes psy-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-18px) rotate(1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .psy-orb-glow, .psy-orb-ring, .psy-orb-core, .psy-ripple,
+  .psy-sparkle, .psy-mote, .psy-float {
+    animation: none;
+  }
+  .psy-sparkle { opacity: 0.8; }
+}
