@@ -30,6 +30,7 @@ function makeDeps(
 ) {
   const processed = new Set<string>();
   const access = new Map<string, string>();
+  const clearedSessions: string[] = [];
   const deps: StripeWebhookDeps = {
     getWebhookSecret: () => 'whsec_test',
     constructEvent: () => event,
@@ -42,9 +43,12 @@ function makeDeps(
       const key = `${userId}:${roomName}`;
       if (!access.has(key)) access.set(key, sessionId);
     },
+    clearPendingCheckout: async (sessionId) => {
+      clearedSessions.push(sessionId);
+    },
     ...overrides,
   };
-  return { deps, processed, access };
+  return { deps, processed, access, clearedSessions };
 }
 
 async function callHandler(deps: StripeWebhookDeps, signature = 't=1,v1=abc') {
@@ -150,5 +154,19 @@ describe('Stripe webhook handler', () => {
     assert.equal(retry.status, 200);
     assert.notDeepEqual(retry.body, { received: true, duplicate: true });
     assert.equal(access.size, 1);
+  });
+
+  it('clears the pending checkout after unlocking, and still succeeds if that fails', async () => {
+    const ok = makeDeps(makeEvent());
+    assert.equal((await callHandler(ok.deps)).status, 200);
+    assert.deepEqual(ok.clearedSessions, ['cs_test_1']);
+
+    const failing = makeDeps(makeEvent(), {
+      clearPendingCheckout: async () => {
+        throw new Error('db blip');
+      },
+    });
+    assert.equal((await callHandler(failing.deps)).status, 200);
+    assert.equal(failing.access.size, 1);
   });
 });

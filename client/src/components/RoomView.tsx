@@ -121,6 +121,14 @@ export const RoomView: React.FC<RoomViewProps> = ({
     {},
   );
   const [isRedirecting, setIsRedirecting] = useState(false);
+  // Blocks a second Unlock click before React has re-rendered the disabled button.
+  const checkoutInFlight = useRef(false);
+  // Room the user just paid for whose unlock hasn't been confirmed yet. While set,
+  // the lock card offers "Check again" instead of a second purchase.
+  const [finishingUnlockRoom, setFinishingUnlockRoom] = useState<string | null>(
+    null,
+  );
+  const [isRecheckingAccess, setIsRecheckingAccess] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   // Captured once on first render so React StrictMode's double effects don't lose it.
@@ -151,7 +159,10 @@ export const RoomView: React.FC<RoomViewProps> = ({
       setPremiumAccess(Object.fromEntries(results));
 
       if (status === 'cancelled') {
-        setNotice({ kind: 'info', text: 'Checkout cancelled. You were not charged.' });
+        setNotice({
+          kind: 'info',
+          text: 'Checkout cancelled. You were not charged.',
+        });
         return;
       }
       if (status !== 'success' || !room || !PREMIUM_ROOM_NAMES.includes(room)) {
@@ -159,23 +170,29 @@ export const RoomView: React.FC<RoomViewProps> = ({
       }
 
       // Stripe's webhook can land a moment after the redirect, so poll briefly.
+      // Meanwhile the lock card shows "finishing unlock" with no Unlock button,
+      // so the user can't accidentally pay a second time.
       setCurrentRoomName(room);
-      setNotice({ kind: 'info', text: 'Payment received. Unlocking…', sticky: true });
+      if (results.some(([name, ok]) => name === room && ok)) {
+        setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+        return;
+      }
+      setFinishingUnlockRoom(room);
       for (let attempt = 0; attempt < 8; attempt++) {
         if (await fetchRoomAccess(room)) {
           if (cancelled) return;
           setPremiumAccess((prev) => ({ ...prev, [room]: true }));
-          setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+          setFinishingUnlockRoom(null);
+          setNotice({
+            kind: 'success',
+            text: `The ${room} Room is unlocked ✨`,
+          });
           return;
         }
         await wait(1500);
         if (cancelled) return;
       }
-      setNotice({
-        kind: 'error',
-        text: 'Payment received, but the unlock is still processing. Refresh in a moment.',
-        sticky: true,
-      });
+      // Still not confirmed: leave the "Check again" button up for the user.
     }
 
     loadAccess();
@@ -194,7 +211,10 @@ export const RoomView: React.FC<RoomViewProps> = ({
   // If the user comes back from Stripe with the browser's Back button, re-enable Unlock.
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) setIsRedirecting(false);
+      if (e.persisted) {
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+      }
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
@@ -303,8 +323,29 @@ export const RoomView: React.FC<RoomViewProps> = ({
     setUnlockError(null);
   };
 
-  // Start Stripe Checkout for the current premium room.
+  // "Check again" on the finishing-unlock card: ask the server once more.
+  const handleCheckAgain = async () => {
+    const room = currentRoomName;
+    setUnlockError(null);
+    setIsRecheckingAccess(true);
+    const unlocked = await fetchRoomAccess(room);
+    setIsRecheckingAccess(false);
+    if (unlocked) {
+      setPremiumAccess((prev) => ({ ...prev, [room]: true }));
+      setFinishingUnlockRoom(null);
+      setNotice({ kind: 'success', text: `The ${room} Room is unlocked ✨` });
+    } else {
+      setUnlockError(
+        'Still finishing up. Give it a few seconds and check again.',
+      );
+    }
+  };
+
+  // Start Stripe Checkout for the current premium room. The server reuses an
+  // open checkout if one exists, so this never creates a second charge.
   const handleUnlock = async () => {
+    if (checkoutInFlight.current) return; // Ignore double clicks
+    checkoutInFlight.current = true;
     setUnlockError(null);
     setIsRedirecting(true);
     try {
@@ -317,10 +358,32 @@ export const RoomView: React.FC<RoomViewProps> = ({
       if (res.status === 409) {
         setPremiumAccess((prev) => ({ ...prev, [currentRoomName]: true }));
         setIsRedirecting(false);
+        checkoutInFlight.current = false;
         return;
       }
 
       const data = await res.json().catch(() => null);
+
+      // The server found an earlier payment that just hadn't unlocked yet.
+      if (res.ok && data?.hasAccess === true) {
+        setPremiumAccess((prev) => ({ ...prev, [currentRoomName]: true }));
+        setNotice({
+          kind: 'success',
+          text: `The ${currentRoomName} Room is unlocked ✨`,
+        });
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+        return;
+      }
+
+      // Paid already, but the payment is still clearing: wait instead of paying again.
+      if (res.ok && data?.paymentProcessing === true) {
+        setFinishingUnlockRoom(currentRoomName);
+        setIsRedirecting(false);
+        checkoutInFlight.current = false;
+        return;
+      }
+
       if (!res.ok || !data?.url) {
         throw new Error(data?.message || `Checkout failed (${res.status})`);
       }
@@ -329,6 +392,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
       console.error('Error starting checkout:', err);
       setUnlockError('Could not open checkout. Please try again.');
       setIsRedirecting(false);
+      checkoutInFlight.current = false;
     }
   };
 
@@ -416,6 +480,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
             isRedirecting={isRedirecting}
             error={unlockError}
             onUnlock={handleUnlock}
+            isFinishingUnlock={finishingUnlockRoom === activeTheme.name}
+            isRecheckingAccess={isRecheckingAccess}
+            onCheckAgain={handleCheckAgain}
           />
         }
       >

@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { isPremiumRoom } from '../constants/rooms.js';
 import { grantRoomAccess } from '../models/mongoRoomAccess.js';
 import { markEventProcessed } from '../models/mongoProcessedStripeEvent.js';
+import { clearPendingCheckoutForSession } from '../models/mongoPendingCheckout.js';
 import { getStripe } from '../stripe/stripeClient.js';
 
 export interface StripeWebhookDeps {
@@ -18,6 +19,7 @@ export interface StripeWebhookDeps {
     roomName: string,
     stripeSessionId: string,
   ) => Promise<void>;
+  clearPendingCheckout: (stripeSessionId: string) => Promise<void>;
 }
 
 // Dependencies are injected so the handler can be tested without Stripe or MongoDB.
@@ -97,6 +99,12 @@ export function createStripeWebhookHandler(
       return;
     }
 
+    // The room is unlocked, so the user's outstanding checkout is no longer needed.
+    // Best effort: if this fails, the checkout handler cleans it up on the next click.
+    await deps.clearPendingCheckout(session.id).catch((err) => {
+      console.warn('stripeWebhook: Could not clear pending checkout:', err);
+    });
+
     if (!isFirstDelivery) {
       console.log(`stripeWebhook: ${event.id} already processed; skipping`);
       res.status(200).json({ received: true, duplicate: true });
@@ -114,4 +122,5 @@ export const handleStripeWebhook = createStripeWebhookHandler({
     getStripe().webhooks.constructEvent(payload, signature, secret),
   markEventProcessed,
   grantRoomAccess,
+  clearPendingCheckout: clearPendingCheckoutForSession,
 });
